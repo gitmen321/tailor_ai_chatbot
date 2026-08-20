@@ -81,3 +81,33 @@ export async function searchMachineDocs(queryEmbedding, machineModel, matchCount
   void matchCount;
   throw new Error("searchMachineDocs not implemented");
 }
+
+/**
+ * Remove all manual chunks for a machine model (idempotent re-ingest).
+ * @param {string} machineModel
+ * @returns {Promise<number>}
+ */
+export async function deleteMachineDocsForModel(machineModel) {
+  const { error, count } = await supabase
+    .from("machine_docs")
+    .delete({ count: "exact" })
+    .eq("machine_model", machineModel);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Insert manual chunks with embeddings into machine_docs.
+ * @param {Array<{ machine_model: string, content: string, embedding: number[] }>} rows
+ * @returns {Promise<number>}
+ */
+export async function insertMachineDocs(rows) {
+  const { data, error } = await supabase
+    .from("machine_docs")
+    .insert(rows)
+    .select("id");
+
+  if (error) throw error;
+  return data?.length ?? 0;
+}
