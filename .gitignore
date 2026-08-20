@@ -2,3 +2,18 @@ node_modules/
 .env
 auth_info/
 *.log
+
+# Monorepo subprojects
+server/node_modules/
+server/.env
+server/.api_auth_token.txt
+
+whatsapp/node_modules/
+whatsapp/.env
+whatsapp/auth_info/
+
+web/node_modules/
+web/.env
+web/dist/
+web/public/models/*.glb
+
