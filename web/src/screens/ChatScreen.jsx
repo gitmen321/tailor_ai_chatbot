@@ -61,12 +61,17 @@ export default function ChatScreen() {
   const {
     isRecording,
     elapsedLabel,
+    inputMode,
     error: recorderError,
     clearError: clearRecorderError,
     startRecording,
     stopRecording,
     cancelRecording,
-  } = useVoiceRecorder();
+  } = useVoiceRecorder({
+    onInterimTranscript: (interim) => {
+      if (interim) setText(interim);
+    },
+  });
 
   const scrollToLatest = useCallback(() => {
     const el = listRef.current;
@@ -193,6 +198,14 @@ export default function ChatScreen() {
   }
 
   async function runTranscription(audioPayload) {
+    // Browser speech API already produced text — skip server round-trip.
+    if (audioPayload.transcript) {
+      setText(audioPayload.transcript);
+      setTranscribeError(null);
+      setError(null);
+      return;
+    }
+
     transcribeAbortRef.current?.abort();
     const controller = new AbortController();
     transcribeAbortRef.current = controller;
@@ -421,7 +434,11 @@ export default function ChatScreen() {
           <div className="recording-bar" role="status" aria-live="polite">
             <span className="recording-pulse" aria-hidden="true" />
             <div className="recording-meta">
-              <span className="recording-label">റിക്കോർഡ് ചെയ്യുന്നു…</span>
+              <span className="recording-label">
+                {inputMode === "speech-api"
+                  ? "കേൾക്കുന്നു… സംസാരിക്കുക"
+                  : "റിക്കോർഡ് ചെയ്യുന്നു…"}
+              </span>
               <span className="recording-timer">{elapsedLabel}</span>
             </div>
             <div className="recording-wave" aria-hidden="true">
