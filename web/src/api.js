@@ -3,6 +3,7 @@ const CHAT_UI_CLEARED_KEY = "tailor_chat_ui_cleared";
 
 const CHAT_TIMEOUT_MS = 90000;
 const TRANSCRIBE_TIMEOUT_MS = 60000;
+const SPEAK_TIMEOUT_MS = 120000;
 
 function apiBase() {
   const base = import.meta.env.VITE_SERVER_API_URL;
@@ -139,6 +140,32 @@ export async function transcribeAudio({ audioBase64, mimeType, signal }) {
   }
 
   return data;
+}
+
+export async function fetchSpeechAudio({ text, signal }) {
+  const res = await fetchWithTimeout(
+    `${apiBase()}/api/speak`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ text }),
+      signal,
+    },
+    SPEAK_TIMEOUT_MS
+  );
+
+  if (!res.ok) {
+    let errText = await res.text().catch(() => "");
+    try {
+      const parsed = JSON.parse(errText);
+      errText = parsed.error || errText;
+    } catch {
+      /* use raw text */
+    }
+    throw new Error(errText || `Speech failed (${res.status})`);
+  }
+
+  return res.json();
 }
 
 /** Read a File as raw base64 (no data: prefix). */

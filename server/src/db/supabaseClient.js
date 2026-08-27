@@ -103,19 +103,27 @@ export async function getOrCreateConversation(userId) {
  * @param {'user'|'assistant'} role
  * @param {string} content
  * @param {'image'|'voice'|null} [mediaType]
+ * @param {Record<string, unknown>} [metadata]
  * @returns {Promise<object>}
  */
-export async function saveMessage(conversationId, role, content, mediaType = null) {
-  const { data, error } = await supabase
-    .from("messages")
-    .insert({
-      conversation_id: conversationId,
-      role,
-      content,
-      media_type: mediaType,
-    })
-    .select("*")
-    .single();
+export async function saveMessage(
+  conversationId,
+  role,
+  content,
+  mediaType = null,
+  metadata = null
+) {
+  const row = {
+    conversation_id: conversationId,
+    role,
+    content,
+    media_type: mediaType,
+  };
+  if (metadata && Object.keys(metadata).length > 0) {
+    row.metadata = metadata;
+  }
+
+  const { data, error } = await supabase.from("messages").insert(row).select("*").single();
 
   if (error) throw error;
   return data;
@@ -149,7 +157,7 @@ export async function loadRecentHistory(conversationId, limit = 20) {
 export async function loadChatHistory(conversationId, limit = 100) {
   const { data, error } = await supabase
     .from("messages")
-    .select("id, role, content, media_type, created_at")
+    .select("id, role, content, media_type, metadata, created_at")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
     .limit(limit);

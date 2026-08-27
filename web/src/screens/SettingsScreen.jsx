@@ -15,8 +15,12 @@ export default function SettingsScreen() {
   const {
     readAloud,
     setReadAloud,
-    malayalamVoiceAvailable,
-    voicesReady,
+    ttsSupported,
+    isSpeaking,
+    isLoadingSpeech,
+    speakReply,
+    speakText,
+    stopSpeaking,
   } = useVoiceSettings();
   const {
     wallpaperId,
@@ -158,16 +162,15 @@ export default function SettingsScreen() {
                 aria-checked={readAloud}
                 aria-label="Read replies aloud"
                 className={`toggle-switch ${readAloud ? "is-on" : ""}`}
-                disabled={!voicesReady || !malayalamVoiceAvailable}
+                disabled={!ttsSupported}
                 onClick={() => setReadAloud(!readAloud)}
               >
                 <span className="toggle-knob" />
               </button>
             </div>
-            {voicesReady && !malayalamVoiceAvailable ? (
-              <p className="settings-note" role="status">
-                ഈ ഫോണിൽ മലയാളം വായനാ ശബ്ദം ലഭ്യമല്ല — അതുകൊണ്ട് ഉറക്കെ
-                വായിക്കൽ ഓഫാണ്.
+            {ttsSupported ? (
+              <p className="settings-note settings-note-ok" role="status">
+                മലയാളം വായന സെർവർ വഴി — PC, ഫോൺ എല്ലായിടത്തും പ്രവർത്തിക്കും.
               </p>
             ) : null}
           </div>

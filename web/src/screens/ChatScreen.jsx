@@ -30,17 +30,31 @@ function welcomeMessage() {
 }
 
 function mapHistoryRow(row) {
+  const videos = Array.isArray(row.metadata?.videos) ? row.metadata.videos : [];
   return {
     id: row.id,
     role: row.role,
     content: row.content,
     hasImage: row.media_type === "image",
+    videos,
   };
 }
 
 export default function ChatScreen() {
   const { wallpaperClass, wallpaperStyle } = useWallpaper();
-  const { speakReply } = useVoiceSettings();
+  const {
+    readAloud,
+    setReadAloud,
+    ttsSupported,
+    isSpeaking,
+    isLoadingSpeech,
+    speechError,
+    clearSpeechError,
+    unlockAudio,
+    speakReply,
+    speakText,
+    stopSpeaking,
+  } = useVoiceSettings();
   const [webUserId] = useState(() => getOrCreateWebUserId());
   const [messages, setMessages] = useState([welcomeMessage()]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -307,9 +321,10 @@ export default function ChatScreen() {
       });
       setServerOk(true);
       const reply = data.reply || "(no reply)";
+      const videos = data.videos ?? [];
       setMessages((prev) => [
         ...prev,
-        { id: `a-${Date.now()}`, role: "assistant", content: reply },
+        { id: `a-${Date.now()}`, role: "assistant", content: reply, videos },
       ]);
       speakReply(reply);
     } catch (err) {
@@ -354,6 +369,34 @@ export default function ChatScreen() {
           </div>
           <button
             type="button"
+            className={`icon-btn ${readAloud ? "is-active" : ""}`}
+            onClick={() => {
+              unlockAudio();
+              clearSpeechError();
+              if (isSpeaking || isLoadingSpeech) {
+                stopSpeaking();
+                return;
+              }
+              setReadAloud(!readAloud);
+            }}
+            aria-label={
+              isSpeaking
+                ? "Stop reading aloud"
+                : readAloud
+                  ? "Turn off read aloud"
+                  : "Turn on read aloud"
+            }
+            title={
+              readAloud
+                ? "മറുപടി ഉറക്കെ വായിക്കുക: ഓൺ"
+                : "മറുപടി ഉറക്കെ വായിക്കുക: ഓഫ്"
+            }
+            disabled={!ttsSupported}
+          >
+            {isSpeaking ? "⏹" : isLoadingSpeech ? "…" : readAloud ? "🔊" : "🔇"}
+          </button>
+          <button
+            type="button"
             className="icon-btn"
             onClick={handleClearChat}
             aria-label="Clear chat on screen"
@@ -373,6 +416,12 @@ export default function ChatScreen() {
       {error ? (
         <div className="error-banner" role="alert">
           {error}
+        </div>
+      ) : null}
+
+      {speechError ? (
+        <div className="error-banner" role="alert">
+          {speechError}
         </div>
       ) : null}
 
@@ -400,6 +449,44 @@ export default function ChatScreen() {
                   <p className="bubble-media-tag">📷 ഫോട്ടോ</p>
                 ) : null}
                 <p>{m.content}</p>
+                {m.videos?.length ? (
+                  <div className="video-links">
+                    <p className="video-links-title">📺 യൂട്യൂബ് വീഡിയോകൾ</p>
+                    {m.videos.map((v, i) => (
+                      <a
+                        key={`${m.id}-v-${i}`}
+                        className="video-link-card"
+                        href={v.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <span className="video-link-title">{v.title}</span>
+                        {v.snippet ? (
+                          <span className="video-link-snippet">{v.snippet}</span>
+                        ) : null}
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+                {m.role === "assistant" && ttsSupported ? (
+                  <button
+                    type="button"
+                    className="bubble-speak-btn"
+                    onClick={() => {
+                      unlockAudio();
+                      clearSpeechError();
+                      if (isSpeaking || isLoadingSpeech) stopSpeaking();
+                      else void speakText(m.content);
+                    }}
+                    aria-label="Read this reply aloud"
+                  >
+                    {isLoadingSpeech
+                      ? "… ലോഡ് ചെയ്യുന്നു"
+                      : isSpeaking
+                        ? "⏹ നിർത്തുക"
+                        : "🔊 കേൾക്കുക"}
+                  </button>
+                ) : null}
               </div>
             </li>
           ))}

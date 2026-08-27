@@ -4,6 +4,7 @@ import { embedText768 } from "./tools/embedText768.js";
 import { searchWeb } from "./tools/searchWeb.js";
 import { searchYoutube } from "./tools/searchYoutube.js";
 import { saveLearnedAnswer } from "./tools/saveLearnedAnswer.js";
+import { userWantsVideos } from "./videoIntent.js";
 
 const MACHINE_BRAND = process.env.MACHINE_BRAND ?? "Usha";
 const MACHINE_MODEL = process.env.MACHINE_MODEL ?? "usha-quick-stitch";
@@ -32,6 +33,7 @@ function formatHistory(recentHistory) {
 }
 
 function buildPrompt({ text, recentHistory, manualDocs, webResults }) {
+  const hasYoutubeVideos = (webResults?.youtube?.length ?? 0) > 0;
   const machineSpecBlock = buildMachineSpecBlock();
 
   const manualContext =
@@ -79,6 +81,11 @@ function buildPrompt({ text, recentHistory, manualDocs, webResults }) {
     ``,
     `Rules:`,
     `- If manual context is NONE, you should use web/tutorial context and be clear that it is from web/tutorials.`,
+    hasYoutubeVideos
+      ? `- YouTube video links WILL appear as clickable cards below your message. You may briefly mention them (e.g. "താഴെ വീഡിയോ ലിങ്ക് ഉണ്ട്") but do NOT paste raw URLs.`
+      : `- No YouTube links are attached to this reply. Do NOT say a video button or link appears below.`,
+    `- Do NOT tell the user to search YouTube themselves when video links are already found.`,
+    `- Give a short helpful Malayalam answer.`,
     `- Keep answers practical and step-by-step.`,
     `- Ask one clarifying question only if required to avoid unsafe/incorrect guidance.`,
   ].join("\n");
@@ -121,14 +128,22 @@ export async function runAgent({
   const queryEmbedding = await embedQuery768(text);
   const manualDocs = await searchMachineDocs(queryEmbedding, machineModel, 4);
 
+  const wantsVideos = userWantsVideos(text);
+  const manualWeak =
+    !manualDocs?.length ||
+    (manualDocs.length > 0 && (manualDocs[0]?.similarity ?? 0) < 0.55);
+
   let usedWebSearch = false;
   let webResults = { web: [], youtube: [] };
 
-  if (!manualDocs || manualDocs.length === 0) {
+  const shouldSearchWeb = manualWeak && !wantsVideos;
+  const shouldSearchYoutube = wantsVideos || manualWeak;
+
+  if (shouldSearchWeb || shouldSearchYoutube) {
     usedWebSearch = true;
     const [web, youtube] = await Promise.allSettled([
-      searchWeb(text),
-      searchYoutube(text),
+      shouldSearchWeb ? searchWeb(text) : Promise.resolve([]),
+      shouldSearchYoutube ? searchYoutube(text) : Promise.resolve([]),
     ]);
 
     webResults = {
@@ -164,6 +179,8 @@ export async function runAgent({
     await saveLearnedAnswer({ question: text, answer: reply });
   }
 
-  return { reply, usedWebSearch };
+  const videos = webResults.youtube?.length ? webResults.youtube : [];
+
+  return { reply, usedWebSearch, videos };
 }
 

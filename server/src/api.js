@@ -11,6 +11,7 @@ import {
 } from "./db/supabaseClient.js";
 import { runAgent } from "./agent/graph.js";
 import { transcribeMalayalamAudio } from "./transcribe.js";
+import { synthesizeMalayalamSpeech } from "./speak.js";
 
 const router = express.Router();
 
@@ -43,6 +44,24 @@ router.get("/api/history", authMiddleware, async (req, res, next) => {
     next(err);
   }
 });
+
+router.post(
+  "/api/speak",
+  authMiddleware,
+  async (req, res, next) => {
+    try {
+      const schema = z.object({
+        text: z.string().min(1).max(2000),
+      });
+
+      const { text } = schema.parse(req.body);
+      const audio = await synthesizeMalayalamSpeech(text);
+      res.json(audio);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 router.post(
   "/api/transcribe",
@@ -106,7 +125,7 @@ router.post(
       await saveMessage(conversationId, "user", text, imageBase64 ? "image" : null);
 
       const recentHistory = await loadRecentHistory(conversationId, 20);
-      const { reply } = await runAgent({
+      const { reply, videos } = await runAgent({
         text,
         recentHistory,
         userId: user.id,
@@ -115,9 +134,11 @@ router.post(
         imageMimeType,
       });
 
-      await saveMessage(conversationId, "assistant", reply, null);
+      await saveMessage(conversationId, "assistant", reply, null, {
+        videos: videos ?? [],
+      });
 
-      res.json({ reply });
+      res.json({ reply, videos: videos ?? [] });
     } catch (err) {
       next(err);
     }
