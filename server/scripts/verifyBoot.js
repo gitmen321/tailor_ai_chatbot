@@ -55,6 +55,18 @@ await new Promise((resolve, reject) => {
       if (!res.ok) throw new Error(`Health check failed (${res.status})`);
       const body = await res.json();
       if (!body.ok) throw new Error("Health check returned unexpected body");
+
+      // Allow a short window for async API mount.
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        const readyRes = await fetch(`http://127.0.0.1:${verifyPort}/api/health`);
+        const readyBody = await readyRes.json();
+        if (readyBody.ready) break;
+        await new Promise((r) => setTimeout(r, 250));
+        if (attempt === 19) {
+          throw new Error("API routes did not become ready");
+        }
+      }
+
       console.log("health check OK");
       finish();
     } catch (err) {

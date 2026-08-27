@@ -41,7 +41,9 @@ Supabase + Gemini + YouTube / Tavily
 
 ### 2. Environment variables
 
-In Railway → your service → **Variables**, add everything from `server/.env.example`:
+In Railway → your service → **Variables**, add everything from `server/.env.example`.
+
+**Critical:** use the **service role** key for `SUPABASE_SERVICE_ROLE_KEY` (from Supabase → Project Settings → API → `service_role` secret). The `anon` key will not work for server-side DB writes.
 
 | Variable | Notes |
 |----------|--------|
@@ -145,6 +147,7 @@ Optional: **Domain management** → add a custom domain.
 | CORS errors | Server already allows browser origins (`cors({ origin: true })`). Check the API URL is HTTPS and correct. |
 | PWA won’t install | Site must be served over HTTPS (Netlify does this). Manifest and SW must load — check DevTools → Application. |
 | Chat times out | Railway free tier can cold-start; retry after ~30s. Check Railway logs for Gemini/Supabase errors. |
+| Railway healthcheck fails | Confirm **Root Directory** is `server`, all env vars are set (especially `SUPABASE_SERVICE_ROLE_KEY`), then open `/api/health` on the Railway domain. Server binds to `0.0.0.0` and exposes health before API modules load. |
 | No 3D machine model | Add `web/public/models/machine.glb` locally, commit or use Netlify build plugin / large-file hosting, then rebuild. |
 
 ---
