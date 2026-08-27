@@ -1,3 +1,4 @@
+# Railway service config (root directory must be `server` in dashboard).
 [build]
 builder = "NIXPACKS"
 
