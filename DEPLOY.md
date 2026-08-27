@@ -37,7 +37,9 @@ Supabase + Gemini + YouTube / Tavily
 3. Open the new service → **Settings**:
    - **Root Directory**: `server`
    - **Start Command**: `npm start` (also set in `server/railway.toml`)
-4. **Settings → Networking → Generate Domain** — copy the URL, e.g. `https://tailor-assistant-production.up.railway.app` (no trailing slash).
+4. **Settings → Networking → Generate Domain** — copy the URL, e.g. `https://tailor-assistant-production.up.railway.app` (no trailing slash, **no port number**).
+
+   If Railway shows a port like `3888` under Public Networking, that is the **internal** container port only. The browser URL is always `https://….up.railway.app` without `:3888`. Set the networking port to match what the deploy logs print as `PORT=` (Railway sets this automatically).
 
 ### 2. Environment variables
 

@@ -46,7 +46,7 @@ async function mountApi() {
 }
 
 const server = app.listen(port, host, () => {
-  console.log(`Server listening on http://${host}:${port}`);
+  console.log(`Server listening on http://${host}:${port} (PORT=${port})`);
   mountApi().catch((err) => {
     apiError = err;
     console.error("Failed to mount API routes:", err);

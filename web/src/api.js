@@ -5,11 +5,41 @@ const CHAT_TIMEOUT_MS = 90000;
 const TRANSCRIBE_TIMEOUT_MS = 60000;
 const SPEAK_TIMEOUT_MS = 120000;
 
+/** Public Railway API — no port in URL (3888 is internal only). */
+const RAILWAY_API_URL = "https://tailoraichatbot-production.up.railway.app";
+
+function isLocalHostname(hostname) {
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
 function apiBase() {
-  const base = import.meta.env.VITE_SERVER_API_URL?.trim();
-  // Empty = same-origin (/api/*). Netlify proxies that to Railway (see netlify.toml).
-  if (!base) return "";
-  return base.replace(/\/$/, "");
+  const configured = import.meta.env.VITE_SERVER_API_URL?.trim();
+  const inBrowser = typeof window !== "undefined";
+  const onLocalDev =
+    inBrowser && isLocalHostname(window.location.hostname);
+
+  // Local dev: Vite proxies /api → localhost:3000
+  if (onLocalDev && !configured) return "";
+
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if (!onLocalDev && isLocalHostname(url.hostname)) {
+        return RAILWAY_API_URL;
+      }
+      // Railway public HTTPS never uses a custom port in the browser URL.
+      if (url.hostname.endsWith(".railway.app")) {
+        url.port = "";
+        return url.origin;
+      }
+      return url.origin;
+    } catch {
+      return configured.replace(/\/$/, "");
+    }
+  }
+
+  // Production Netlify/PWA: call Railway directly (server allows CORS).
+  return RAILWAY_API_URL;
 }
 
 function apiToken() {
