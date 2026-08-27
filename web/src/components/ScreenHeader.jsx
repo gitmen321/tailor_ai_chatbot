@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import Icon from "./Icon.jsx";
 
 export default function ScreenHeader({ title, subtitle, backTo = "/chat" }) {
   const navigate = useNavigate();
@@ -11,7 +12,7 @@ export default function ScreenHeader({ title, subtitle, backTo = "/chat" }) {
         onClick={() => navigate(backTo)}
         aria-label="Back"
       >
-        ←
+        <Icon name="arrow-left" />
       </button>
       <div className="screen-header-text">
         <h1>{title}</h1>

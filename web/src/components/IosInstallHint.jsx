@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Icon from "./Icon.jsx";
 
 const DISMISS_KEY = "tailor_ios_install_hint_dismissed";
 
@@ -37,8 +38,13 @@ export default function IosInstallHint() {
         <strong>iPhone-ൽ ഇൻസ്റ്റാൾ ചെയ്യാൻ:</strong> Share ബട്ടൺ → Add to Home
         Screen
       </p>
-      <button type="button" className="ios-install-dismiss" onClick={dismiss}>
-        ✕
+      <button
+        type="button"
+        className="ios-install-dismiss"
+        onClick={dismiss}
+        aria-label="Dismiss"
+      >
+        <Icon name="close" size={14} />
       </button>
     </div>
   );

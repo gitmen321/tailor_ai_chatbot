@@ -33,7 +33,7 @@ export function ThemeProvider({ children }) {
     document.documentElement.setAttribute("data-theme", resolved);
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute("content", resolved === "dark" ? "#1C1A18" : "#F7F1E8");
+      meta.setAttribute("content", resolved === "dark" ? "#100E0D" : "#F1ECE4");
     }
   }, [resolved]);
 

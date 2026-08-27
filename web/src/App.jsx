@@ -3,6 +3,8 @@ import { ThemeProvider } from "./contexts/ThemeContext.jsx";
 import { VoiceSettingsProvider } from "./contexts/VoiceSettingsContext.jsx";
 import { WallpaperProvider } from "./contexts/WallpaperContext.jsx";
 import { useVisualViewport } from "./hooks/useVisualViewport.js";
+import PwaInstallBanner from "./components/PwaInstallBanner.jsx";
+import IosInstallHint from "./components/IosInstallHint.jsx";
 import SplashScreen from "./screens/SplashScreen.jsx";
 import ChatScreen from "./screens/ChatScreen.jsx";
 import SettingsScreen from "./screens/SettingsScreen.jsx";
@@ -31,6 +33,8 @@ export default function App() {
       <VoiceSettingsProvider>
         <WallpaperProvider>
           <AppRoutes />
+          <PwaInstallBanner />
+          <IosInstallHint />
         </WallpaperProvider>
       </VoiceSettingsProvider>
     </ThemeProvider>

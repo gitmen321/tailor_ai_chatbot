@@ -10,6 +10,7 @@ import {
   setChatUiCleared,
   transcribeAudio,
 } from "../api.js";
+import Icon, { BrandMark } from "../components/Icon.jsx";
 import { useVoiceSettings } from "../contexts/VoiceSettingsContext.jsx";
 import { useWallpaper } from "../contexts/WallpaperContext.jsx";
 import { useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
@@ -355,17 +356,34 @@ export default function ChatScreen() {
   return (
     <div className="app-shell chat-shell screen-enter">
       <header className="app-header">
-        <div className="brand-block">
-          <h1>Tailor Assistant</h1>
-          <p>റസിയയ്ക്കുള്ള സഹായി · യൂഷ ക്വിക്ക് സ്റ്റിച്ച്</p>
+        <div className="brand-lockup">
+          <BrandMark size={40} />
+          <div className="brand-block">
+            <h1>Tailor Assistant</h1>
+            <p>റസിയയ്ക്കുള്ള സഹായി · യൂഷ ക്വിക്ക് സ്റ്റിച്ച്</p>
+          </div>
         </div>
         <div className="header-actions">
           <div
             className={`status-pill ${
               serverOk === true ? "ok" : serverOk === false ? "bad" : "pending"
             }`}
+            title={
+              serverOk === true
+                ? "Server online"
+                : serverOk === false
+                  ? "Server offline"
+                  : "Checking server…"
+            }
           >
-            {serverOk === true ? "Online" : serverOk === false ? "Offline" : "…"}
+            <span className="status-dot" aria-hidden="true" />
+            <span className="status-text">
+              {serverOk === true
+                ? "Online"
+                : serverOk === false
+                  ? "Offline"
+                  : "…"}
+            </span>
           </div>
           <button
             type="button"
@@ -393,35 +411,47 @@ export default function ChatScreen() {
             }
             disabled={!ttsSupported}
           >
-            {isSpeaking ? "⏹" : isLoadingSpeech ? "…" : readAloud ? "🔊" : "🔇"}
+            {isSpeaking ? (
+              <Icon name="stop" size={16} />
+            ) : isLoadingSpeech ? (
+              <span className="dots" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+            ) : (
+              <Icon name={readAloud ? "volume-on" : "volume-off"} />
+            )}
           </button>
           <button
             type="button"
-            className="icon-btn"
+            className="icon-btn is-danger"
             onClick={handleClearChat}
             aria-label="Clear chat on screen"
             title="Clear chat (saved in database)"
           >
-            🗑️
+            <Icon name="trash" />
           </button>
           <Link to="/profile" className="icon-btn" aria-label="Profile">
-            👤
+            <Icon name="user" />
           </Link>
           <Link to="/settings" className="icon-btn" aria-label="Settings">
-            ⚙️
+            <Icon name="settings" />
           </Link>
         </div>
       </header>
 
       {error ? (
         <div className="error-banner" role="alert">
-          {error}
+          <Icon name="shield" size={16} />
+          <span>{error}</span>
         </div>
       ) : null}
 
       {speechError ? (
         <div className="error-banner" role="alert">
-          {speechError}
+          <Icon name="volume-off" size={16} />
+          <span>{speechError}</span>
         </div>
       ) : null}
 
@@ -442,16 +472,25 @@ export default function ChatScreen() {
         <ul className="message-list">
           {messages.map((m) => (
             <li key={m.id} className={`bubble-row ${m.role}`}>
+              {m.role === "assistant" ? (
+                <BrandMark size={26} className="msg-avatar" />
+              ) : null}
               <div className={`bubble ${m.role}`}>
                 {m.imagePreview ? (
                   <img className="bubble-image" src={m.imagePreview} alt="Uploaded" />
                 ) : m.hasImage ? (
-                  <p className="bubble-media-tag">📷 ഫോട്ടോ</p>
+                  <p className="bubble-media-tag">
+                    <Icon name="image" size={13} />
+                    ഫോട്ടോ
+                  </p>
                 ) : null}
                 <p>{m.content}</p>
                 {m.videos?.length ? (
                   <div className="video-links">
-                    <p className="video-links-title">📺 യൂട്യൂബ് വീഡിയോകൾ</p>
+                    <p className="video-links-title">
+                      <Icon name="play" size={13} />
+                      യൂട്യൂബ് വീഡിയോകൾ
+                    </p>
                     {m.videos.map((v, i) => (
                       <a
                         key={`${m.id}-v-${i}`}
@@ -460,10 +499,15 @@ export default function ChatScreen() {
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <span className="video-link-title">{v.title}</span>
-                        {v.snippet ? (
-                          <span className="video-link-snippet">{v.snippet}</span>
-                        ) : null}
+                        <span className="video-link-thumb" aria-hidden="true">
+                          <Icon name="play" size={19} />
+                        </span>
+                        <span className="video-link-body">
+                          <span className="video-link-title">{v.title}</span>
+                          {v.snippet ? (
+                            <span className="video-link-snippet">{v.snippet}</span>
+                          ) : null}
+                        </span>
                       </a>
                     ))}
                   </div>
@@ -471,7 +515,9 @@ export default function ChatScreen() {
                 {m.role === "assistant" && ttsSupported ? (
                   <button
                     type="button"
-                    className="bubble-speak-btn"
+                    className={`bubble-speak-btn ${
+                      isSpeaking || isLoadingSpeech ? "is-playing" : ""
+                    }`}
                     onClick={() => {
                       unlockAudio();
                       clearSpeechError();
@@ -480,11 +526,22 @@ export default function ChatScreen() {
                     }}
                     aria-label="Read this reply aloud"
                   >
-                    {isLoadingSpeech
-                      ? "… ലോഡ് ചെയ്യുന്നു"
-                      : isSpeaking
-                        ? "⏹ നിർത്തുക"
-                        : "🔊 കേൾക്കുക"}
+                    {isLoadingSpeech ? (
+                      <>
+                        <span className="transcribing-spinner" aria-hidden="true" />
+                        ലോഡ് ചെയ്യുന്നു
+                      </>
+                    ) : isSpeaking ? (
+                      <>
+                        <Icon name="stop" size={13} />
+                        നിർത്തുക
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="volume-on" size={14} />
+                        കേൾക്കുക
+                      </>
+                    )}
                   </button>
                 ) : null}
               </div>
@@ -492,6 +549,7 @@ export default function ChatScreen() {
           ))}
           {loading ? (
             <li className="bubble-row assistant">
+              <BrandMark size={26} className="msg-avatar" />
               <div className="bubble assistant loading" aria-live="polite">
                 <span className="dot" />
                 <span className="dot" />
@@ -512,7 +570,7 @@ export default function ChatScreen() {
               onClick={clearPendingImage}
               aria-label="Remove photo"
             >
-              ✕
+              <Icon name="close" size={14} />
             </button>
           </div>
         ) : null}
@@ -541,7 +599,7 @@ export default function ChatScreen() {
               onClick={handleCancelRecording}
               aria-label="Cancel recording"
             >
-              ✕
+              <Icon name="close" size={15} />
             </button>
           </div>
         ) : null}
@@ -562,45 +620,48 @@ export default function ChatScreen() {
               onClick={retryTranscription}
               disabled={!lastAudio || transcribing}
             >
+              <Icon name="refresh" size={14} />
               വീണ്ടും ശ്രമിക്കുക
             </button>
           </div>
         ) : null}
 
         <div className="composer-row">
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => fileRef.current?.click()}
-            aria-label="Take or upload photo"
-            disabled={composerDisabled}
-          >
-            📷
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="sr-only"
-            onChange={onPickImage}
-          />
-          <input
-            className="text-input"
-            type="text"
-            enterKeyHint="send"
-            autoComplete="off"
-            placeholder={
-              transcribing
-                ? "ശബ്ദം എഴുത്താക്കുന്നു…"
-                : loading
-                  ? "ഉത്തരം വരുന്നു…"
-                  : "ചോദ്യം ടൈപ്പ് ചെയ്യുക അല്ലെങ്കിൽ മൈക്ക്…"
-            }
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            disabled={composerDisabled}
-          />
+          <div className="composer-field">
+            <button
+              type="button"
+              className="attach-btn"
+              onClick={() => fileRef.current?.click()}
+              aria-label="Take or upload photo"
+              disabled={composerDisabled}
+            >
+              <Icon name="camera" size={19} />
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="sr-only"
+              onChange={onPickImage}
+            />
+            <input
+              className="text-input"
+              type="text"
+              enterKeyHint="send"
+              autoComplete="off"
+              placeholder={
+                transcribing
+                  ? "ശബ്ദം എഴുത്താക്കുന്നു…"
+                  : loading
+                    ? "ഉത്തരം വരുന്നു…"
+                    : "ചോദ്യം ടൈപ്പ് ചെയ്യുക അല്ലെങ്കിൽ മൈക്ക്…"
+              }
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              disabled={composerDisabled}
+            />
+          </div>
 
           {isBusy ? (
             <button
@@ -609,9 +670,7 @@ export default function ChatScreen() {
               onClick={handleForceStop}
               aria-label="Stop and cancel"
             >
-              <span className="mic-stop-icon" aria-hidden="true">
-                ■
-              </span>
+              <Icon name="stop" size={16} />
             </button>
           ) : showSend ? (
             <button
@@ -621,8 +680,8 @@ export default function ChatScreen() {
               aria-label="Send message"
             >
               <span className="send-label-long">അയയ്ക്കുക</span>
-              <span className="send-label-short" aria-hidden="true">
-                ➤
+              <span className="send-label-short">
+                <Icon name="send" size={19} />
               </span>
             </button>
           ) : (
@@ -632,15 +691,7 @@ export default function ChatScreen() {
               onClick={handleMicToggle}
               aria-label={isRecording ? "Stop recording" : "Record voice message"}
             >
-              {isRecording ? (
-                <span className="mic-stop-icon" aria-hidden="true">
-                  ■
-                </span>
-              ) : (
-                <span className="mic-icon" aria-hidden="true">
-                  🎤
-                </span>
-              )}
+              <Icon name={isRecording ? "stop" : "mic"} size={isRecording ? 16 : 20} />
             </button>
           )}
         </div>

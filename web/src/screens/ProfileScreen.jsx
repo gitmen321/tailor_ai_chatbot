@@ -1,3 +1,4 @@
+import Icon from "../components/Icon.jsx";
 import ScreenHeader from "../components/ScreenHeader.jsx";
 
 const MACHINE_BRAND =
@@ -21,14 +22,20 @@ export default function ProfileScreen() {
           </div>
           <h2 className="profile-name">Rasiya</h2>
           <p className="profile-name-ml">റസിയ</p>
-          <p className="profile-role">Tailoring assistant member</p>
+          <p className="profile-role">
+            <Icon name="sparkle" size={13} />
+            Tailoring assistant member
+          </p>
         </div>
 
         <section className="settings-group">
-          <h2 className="settings-group-title">Machine</h2>
+          <h2 className="settings-group-title">
+            <Icon name="machine" size={13} />
+            Machine
+          </h2>
           <div className="settings-card profile-machine">
             <div className="profile-machine-icon" aria-hidden="true">
-              🪡
+              <Icon name="machine" size={24} />
             </div>
             <div>
               <p className="profile-machine-title">
@@ -42,7 +49,10 @@ export default function ProfileScreen() {
         </section>
 
         <section className="settings-group">
-          <h2 className="settings-group-title">App</h2>
+          <h2 className="settings-group-title">
+            <Icon name="sparkle" size={13} />
+            App
+          </h2>
           <div className="settings-card">
             <p>Tailor Assistant — WhatsApp backup channel</p>
             <p className="muted">Created by Raaz</p>

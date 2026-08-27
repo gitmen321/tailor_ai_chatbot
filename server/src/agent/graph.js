@@ -76,10 +76,11 @@ function buildPrompt({ text, recentHistory, manualDocs, webResults }) {
     machineSpecBlock,
     ``,
     `You get two kinds of context:`,
-    `1) Manual chunks from the machine manual (source of truth when present).`,
-    `2) Web/tutorial search results only used when the manual has no match.`,
+    `1) Manual chunks from the machine manual (source of truth for machine questions).`,
+    `2) Web/YouTube results for tutorials, including garment/fashion how-tos (blouse fitting, stitching, etc.).`,
     ``,
     `Rules:`,
+    `- If the user asks how to stitch/fit/cut a garment, answer that tailoring question. Do not force it onto machine repair.`,
     `- If manual context is NONE, you should use web/tutorial context and be clear that it is from web/tutorials.`,
     hasYoutubeVideos
       ? `- YouTube video links WILL appear as clickable cards below your message. You may briefly mention them (e.g. "താഴെ വീഡിയോ ലിങ്ക് ഉണ്ട്") but do NOT paste raw URLs.`
@@ -102,7 +103,7 @@ function buildPrompt({ text, recentHistory, manualDocs, webResults }) {
     `Web/tutorial context:`,
     `${webContext}`,
     ``,
-    `Task: Answer the user’s question for this specific machine.`,
+    `Task: Answer the user’s question. For garment/fashion how-tos, teach the stitching/fitting. For machine questions, stay specific to this machine.`,
   ].join("\n");
 
   return { systemPrompt, userPrompt };

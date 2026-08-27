@@ -1,3 +1,4 @@
+import Icon from "./Icon.jsx";
 import { usePwaInstall } from "../hooks/usePwaInstall.js";
 
 export default function PwaInstallBanner() {
@@ -7,6 +8,9 @@ export default function PwaInstallBanner() {
 
   return (
     <div className="pwa-install-banner" role="region" aria-label="Install app">
+      <span className="pwa-install-icon" aria-hidden="true">
+        <Icon name="download" size={19} />
+      </span>
       <div className="pwa-install-copy">
         <strong>ഹോം സ്ക്രീനിൽ ചേർക്കുക</strong>
         <span>ആപ്പ് തുറക്കാൻ എളുപ്പമാകും</span>

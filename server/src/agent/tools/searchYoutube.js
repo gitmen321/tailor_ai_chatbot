@@ -1,18 +1,52 @@
-function machineIdentityPrefix(query) {
+const FASHION_RE =
+  /blouse|ബ്ലൗസ്|churidar|ചുരിദാർ|salwar|സൽവാർ|kurti|കുർത്തി|kameez|frock|ഫ്രോക്ക്|skirt|പാവാട|lehenga|petticoat|fitting|ഫിറ്റ്|measurement|അളവ്|sleeve|സ്ലീവ്|neck|കഴുത്ത്|collar|കോളർ|dart|hem|zipper|സിപ്പർ|placket|garment|dress|pattern|cutting|tailoring|തയ്യൽ|തുന്നൽ|പാന്റ്|ഷർട്ട്|inskirts?/i;
+
+const MACHINE_RE =
+  /sew|stitch|motor|belt|oil|usha|tailor|machine|quick.?stitch|lakshmi|സിലായി|മെഷീൻ|മോട്ടോർ|യൂഷ|needle|thread|bobbin|pedal/i;
+
+function isFashionQuery(query) {
+  return FASHION_RE.test(String(query || ""));
+}
+
+function topicFromQuery(query) {
+  const cleaned = String(query || "")
+    .replace(
+      /youtube|youtu\.be|വീഡിയോ|video|tutorial|ട്യൂട്ടോറിയൽ|ട്യൂട്ടോരിയൽ|അയക്ക[ോുൂ]?|send|link|ലിങ്ക്|ഇതിന്റെ|കാണിക്കൂ?|watch|please|pls/gi,
+      " "
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || String(query || "").trim();
+}
+
+function buildYoutubeQuery(query, { malayalam = true } = {}) {
+  const topic = topicFromQuery(query);
+  const langHint = malayalam ? "മലയാളം ട്യൂട്ടോറിയൽ" : "tutorial";
+
+  if (isFashionQuery(query)) {
+    return `${topic} ${langHint}`.trim();
+  }
+
   const brand = process.env.MACHINE_BRAND ?? "Sewing Machine";
   const model = process.env.MACHINE_MODEL ?? "";
   const prefix = `${brand} ${model}`.trim();
-  return `${prefix} sewing machine tutorial ${query}`.trim();
+  return `${prefix} sewing machine ${topic} ${langHint}`.trim();
 }
 
-function looksLikeSewingVideo(title) {
-  return /sew|stitch|motor|belt|oil|usha|tailor|machine|quick.?stitch|lakshmi|സിലായി|മെഷീൻ|മോട്ടോർ|യൂഷ/i.test(
-    title
-  );
+function looksLikeRelevantVideo(title, originalQuery) {
+  const t = String(title || "");
+  if (FASHION_RE.test(t) || MACHINE_RE.test(t)) return true;
+
+  const tokens = String(originalQuery || "")
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 3);
+  const lowerTitle = t.toLowerCase();
+  return tokens.some((w) => lowerTitle.includes(w.toLowerCase()));
 }
 
 function buildSearchUrl(query) {
-  const q = encodeURIComponent(machineIdentityPrefix(query));
+  const q = encodeURIComponent(buildYoutubeQuery(query, { malayalam: true }));
   return `https://www.youtube.com/results?search_query=${q}`;
 }
 
@@ -21,6 +55,18 @@ function decodeJsonString(value) {
     .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
     .replace(/\\"/g, '"')
     .replace(/\\n/g, "\n");
+}
+
+function mapApiItems(items) {
+  return (items ?? [])
+    .map((item) => {
+      const title = item?.snippet?.title ?? "";
+      const videoId = item?.id?.videoId ?? "";
+      const videoUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : "";
+      const snippet = item?.snippet?.description ?? "";
+      return { title, url: videoUrl, snippet };
+    })
+    .filter((v) => v.url);
 }
 
 function fallbackSearchResults(query, reason = "unavailable") {
@@ -44,15 +90,18 @@ function fallbackSearchResults(query, reason = "unavailable") {
   ];
 }
 
-async function searchYoutubeViaApi(query, apiKey) {
-  const finalQuery = machineIdentityPrefix(query);
+async function searchYoutubeViaApi(query, apiKey, { malayalam = true } = {}) {
+  const finalQuery = buildYoutubeQuery(query, { malayalam });
   const url = new URL("https://www.googleapis.com/youtube/v3/search");
   url.searchParams.set("part", "snippet");
   url.searchParams.set("type", "video");
-  url.searchParams.set("maxResults", "4");
-  url.searchParams.set("relevanceLanguage", "ml");
+  url.searchParams.set("maxResults", "6");
   url.searchParams.set("q", finalQuery);
   url.searchParams.set("key", apiKey);
+  if (malayalam) {
+    url.searchParams.set("relevanceLanguage", "ml");
+    url.searchParams.set("regionCode", "IN");
+  }
 
   const response = await fetch(url.toString());
   if (!response.ok) {
@@ -65,25 +114,15 @@ async function searchYoutubeViaApi(query, apiKey) {
   }
 
   const data = await response.json();
-  const items = data.items ?? [];
-  if (items.length === 0) {
+  const mapped = mapApiItems(data.items);
+  if (mapped.length === 0) {
     return { ok: false, reason: "no_results" };
   }
 
-  const videos = items
-    .map((item) => {
-      const title = item?.snippet?.title ?? "";
-      const videoId = item?.id?.videoId ?? "";
-      const videoUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : "";
-      const snippet = item?.snippet?.description ?? "";
-      return { title, url: videoUrl, snippet };
-    })
-    .filter((v) => v.url && looksLikeSewingVideo(v.title));
-
-  if (videos.length === 0) {
-    return { ok: false, reason: "no_results" };
-  }
-
+  const filtered = mapped.filter((v) => looksLikeRelevantVideo(v.title, query));
+  // Fashion/tailoring titles (blouse fitting, etc.) often omit "machine/sew".
+  // Keep YouTube's ranked results rather than dropping them as "API blocked".
+  const videos = filtered.length > 0 ? filtered.slice(0, 4) : mapped.slice(0, 4);
   return { ok: true, videos };
 }
 
@@ -91,7 +130,7 @@ async function searchYoutubeViaTavily(query) {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!apiKey) return [];
 
-  const finalQuery = `${machineIdentityPrefix(query)} site:youtube.com/watch`;
+  const finalQuery = `${buildYoutubeQuery(query, { malayalam: true })} site:youtube.com/watch`;
   const response = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -111,15 +150,13 @@ async function searchYoutubeViaTavily(query) {
   }
 
   const data = await response.json();
-  const results = (data.results ?? [])
+  return (data.results ?? [])
     .filter((r) => /youtube\.com\/watch/i.test(r.url ?? ""))
     .map((r) => ({
       title: r.title ?? "YouTube വീഡിയോ",
       url: r.url,
       snippet: r.content ?? r.snippet ?? "",
     }));
-
-  return results;
 }
 
 /**
@@ -127,14 +164,14 @@ async function searchYoutubeViaTavily(query) {
  * Uses the public search page HTML when the YouTube Data API is blocked or unavailable.
  */
 async function searchYoutubeViaScrape(query) {
-  const finalQuery = encodeURIComponent(machineIdentityPrefix(query));
+  const finalQuery = encodeURIComponent(buildYoutubeQuery(query, { malayalam: true }));
   const url = `https://www.youtube.com/results?search_query=${finalQuery}&sp=EgIQAQ%253D%253D`;
 
   const response = await fetch(url, {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept-Language": "en-US,en;q=0.9,ml;q=0.8",
+      "Accept-Language": "ml-IN,ml;q=0.9,en-IN;q=0.8,en;q=0.7",
     },
     signal: AbortSignal.timeout(12_000),
   });
@@ -172,15 +209,29 @@ async function searchYoutubeViaScrape(query) {
 }
 
 /**
- * YouTube search: Data API first, then Tavily/scrape fallbacks, then search link.
+ * YouTube search: Data API first (Malayalam, then any language),
+ * then Tavily/scrape fallbacks, then a search-page link.
  */
 export async function searchYoutube(query) {
   const apiKey = process.env.YOUTUBE_API_KEY;
+  let lastApiReason = apiKey ? "api_error" : "missing_key";
 
   if (apiKey) {
-    const apiResult = await searchYoutubeViaApi(query, apiKey);
-    if (apiResult.ok) return apiResult.videos;
-    if (apiResult.reason === "api_blocked") {
+    const malayalamResult = await searchYoutubeViaApi(query, apiKey, {
+      malayalam: true,
+    });
+    if (malayalamResult.ok) return malayalamResult.videos;
+    lastApiReason = malayalamResult.reason;
+
+    if (malayalamResult.reason === "no_results") {
+      const anyLangResult = await searchYoutubeViaApi(query, apiKey, {
+        malayalam: false,
+      });
+      if (anyLangResult.ok) return anyLangResult.videos;
+      lastApiReason = anyLangResult.reason;
+    }
+
+    if (lastApiReason === "api_blocked") {
       console.warn(
         "YouTube Data API v3 is not enabled for this key. Enable it in Google Cloud Console → APIs & Services → YouTube Data API v3. Using fallback search."
       );
@@ -196,5 +247,11 @@ export async function searchYoutube(query) {
   if (scrapedResults.length > 0) return scrapedResults;
 
   if (!apiKey) return fallbackSearchResults(query, "missing_key");
-  return fallbackSearchResults(query, "api_blocked");
+  if (lastApiReason === "api_blocked") {
+    return fallbackSearchResults(query, "api_blocked");
+  }
+  if (lastApiReason === "no_results") {
+    return fallbackSearchResults(query, "no_results");
+  }
+  return fallbackSearchResults(query, "unavailable");
 }

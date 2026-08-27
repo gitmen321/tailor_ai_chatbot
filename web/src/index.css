@@ -1,8 +1,8 @@
 /* Entry CSS kept minimal; tokens and layout live in App.css */
 html {
-  background: #f7f1e8;
+  background: #f1ece4;
 }
 
 html[data-theme="dark"] {
-  background: #1c1a18;
+  background: #100e0d;
 }

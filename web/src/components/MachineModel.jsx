@@ -38,23 +38,23 @@ function PrimitiveMachine({ spinning = true }) {
     <group ref={group} position={[0, -0.2, 0]} scale={1.05}>
       <mesh position={[0, 0, 0]} castShadow>
         <boxGeometry args={[1.7, 0.2, 0.75]} />
-        <meshStandardMaterial color="#5a6570" metalness={0.55} roughness={0.35} />
+        <meshStandardMaterial color="#1f2a28" metalness={0.7} roughness={0.28} />
       </mesh>
       <mesh position={[-0.5, 0.48, 0]} castShadow>
         <boxGeometry args={[0.38, 0.78, 0.48]} />
-        <meshStandardMaterial color="#66727c" metalness={0.5} roughness={0.4} />
+        <meshStandardMaterial color="#14403a" metalness={0.62} roughness={0.3} />
       </mesh>
       <mesh position={[0.18, 0.82, 0]} castShadow>
         <boxGeometry args={[1.2, 0.3, 0.42]} />
-        <meshStandardMaterial color="#74818b" metalness={0.55} roughness={0.32} />
+        <meshStandardMaterial color="#155048" metalness={0.66} roughness={0.26} />
       </mesh>
       <mesh position={[0.68, 0.52, 0]} castShadow>
         <boxGeometry args={[0.3, 0.48, 0.34]} />
-        <meshStandardMaterial color="#3f4852" metalness={0.6} roughness={0.28} />
+        <meshStandardMaterial color="#0e2e2a" metalness={0.72} roughness={0.22} />
       </mesh>
       <mesh position={[0.68, 0.18, 0]}>
         <cylinderGeometry args={[0.02, 0.02, 0.28, 8]} />
-        <meshStandardMaterial color="#c9d0d6" metalness={0.85} roughness={0.2} />
+        <meshStandardMaterial color="#e8eef0" metalness={0.95} roughness={0.12} />
       </mesh>
       <mesh
         position={[-0.78, 0.58, 0.3]}
@@ -62,15 +62,15 @@ function PrimitiveMachine({ spinning = true }) {
         castShadow
       >
         <cylinderGeometry args={[0.24, 0.24, 0.09, 28]} />
-        <meshStandardMaterial color="#d5dce2" metalness={0.8} roughness={0.2} />
+        <meshStandardMaterial color="#c0913f" metalness={0.92} roughness={0.18} />
       </mesh>
       <mesh position={[-0.18, 1.1, 0]}>
         <cylinderGeometry args={[0.04, 0.04, 0.24, 12]} />
-        <meshStandardMaterial color="#d0d6dc" metalness={0.7} roughness={0.25} />
+        <meshStandardMaterial color="#d8dee1" metalness={0.85} roughness={0.18} />
       </mesh>
       <mesh position={[-0.18, 1.26, 0]}>
         <cylinderGeometry args={[0.1, 0.1, 0.14, 16]} />
-        <meshStandardMaterial color="#0F6B5C" metalness={0.2} roughness={0.5} />
+        <meshStandardMaterial color="#17a78d" metalness={0.35} roughness={0.4} />
       </mesh>
     </group>
   );
@@ -159,9 +159,12 @@ export default function MachineModel({
         camera={camera}
         gl={{ antialias: true, alpha: true, powerPreference: "low-power" }}
       >
-        <ambientLight intensity={0.85} />
-        <directionalLight position={[3, 4, 2]} intensity={1.15} />
-        <directionalLight position={[-2, 1, -1]} intensity={0.35} />
+        <ambientLight intensity={0.7} />
+        <directionalLight position={[3, 4, 2]} intensity={1.3} />
+        <directionalLight position={[-2, 1, -1]} intensity={0.4} />
+        {/* Rim lights pick out the metal edges against the dark body. */}
+        <pointLight position={[-2.5, 1.2, 1.8]} intensity={18} color="#3ad4b1" />
+        <pointLight position={[2.4, 0.6, -1.6]} intensity={12} color="#d7b069" />
         {content}
       </Canvas>
     </div>
