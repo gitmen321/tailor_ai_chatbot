@@ -97,14 +97,16 @@ The app is already a PWA (`vite-plugin-pwa`: manifest, service worker, install p
 
 ### 3. Environment variables (build time)
 
-**Site settings → Environment variables** — Vite bakes these in at build time; change them and **trigger a new deploy** after updating.
+**Site settings → Environment variables** — Vite bakes these in at build time, so **trigger a new deploy** after changing them.
 
 | Name | Value |
 |------|--------|
-| `VITE_SERVER_API_URL` | Your Railway URL, e.g. `https://tailor-assistant-production.up.railway.app` |
-| `VITE_API_AUTH_TOKEN` | **Same** value as `API_AUTH_TOKEN` on Railway |
+| `VITE_API_AUTH_TOKEN` | **Same** value as `API_AUTH_TOKEN` on Railway (required for chat) |
 | `VITE_MACHINE_BRAND` | e.g. `Usha` |
 | `VITE_MACHINE_MODEL` | e.g. `Quick Stitch Master` |
+| `VITE_SERVER_API_URL` | **Optional.** Leave unset to use same-origin `/api/*` (Netlify proxies to Railway via `web/netlify.toml`). Set only if you want the browser to call Railway directly. |
+
+If the app shows **Server offline** after deploy, the usual cause is a Netlify build that still has `VITE_SERVER_API_URL=http://localhost:3000`. Clear that variable (or leave empty), set `VITE_API_AUTH_TOKEN`, then **Deploy → Trigger deploy**.
 
 ### 4. Deploy
 
@@ -143,7 +145,8 @@ Optional: **Domain management** → add a custom domain.
 | Problem | Fix |
 |---------|-----|
 | `Unauthorized` in chat | `VITE_API_AUTH_TOKEN` on Netlify must match `API_AUTH_TOKEN` on Railway. Redeploy Netlify after changing. |
-| `VITE_SERVER_API_URL is not set` | Add the env var on Netlify and redeploy (vars are embedded at build time). |
+| Web shows **Server offline** | Railway is up but Netlify still calls `localhost`. Remove `VITE_SERVER_API_URL` from Netlify (use `/api` proxy) or set it to your Railway HTTPS URL, set `VITE_API_AUTH_TOKEN`, then **trigger a new Netlify deploy**. |
+| `VITE_SERVER_API_URL is not set` | No longer required — the app uses same-origin `/api` on Netlify. Redeploy with the latest `web/netlify.toml`. |
 | CORS errors | Server already allows browser origins (`cors({ origin: true })`). Check the API URL is HTTPS and correct. |
 | PWA won’t install | Site must be served over HTTPS (Netlify does this). Manifest and SW must load — check DevTools → Application. |
 | Chat times out | Railway free tier can cold-start; retry after ~30s. Check Railway logs for Gemini/Supabase errors. |

@@ -6,9 +6,10 @@ const TRANSCRIBE_TIMEOUT_MS = 60000;
 const SPEAK_TIMEOUT_MS = 120000;
 
 function apiBase() {
-  const base = import.meta.env.VITE_SERVER_API_URL;
-  if (!base) throw new Error("VITE_SERVER_API_URL is not set");
-  return base;
+  const base = import.meta.env.VITE_SERVER_API_URL?.trim();
+  // Empty = same-origin (/api/*). Netlify proxies that to Railway (see netlify.toml).
+  if (!base) return "";
+  return base.replace(/\/$/, "");
 }
 
 function apiToken() {
