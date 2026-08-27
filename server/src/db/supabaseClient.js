@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import ws from "ws";
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -11,6 +12,8 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
+  // Node <22 has no global WebSocket; ws keeps Railway/Nixpacks boot working.
+  realtime: { transport: ws },
 });
 
 const MACHINE_BRAND = process.env.MACHINE_BRAND;

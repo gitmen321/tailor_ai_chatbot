@@ -60,6 +60,8 @@ In Railway → your service → **Variables**, add everything from `server/.env.
 
 Railway sets `PORT` automatically — do not override it.
 
+**Node.js 22+** is required (Supabase client needs native WebSocket or the bundled `ws` transport). This repo pins Node 22 via `server/package.json` engines, `server/.nvmrc`, and `server/nixpacks.toml`.
+
 ### 3. Verify the API
 
 After deploy finishes, open:
