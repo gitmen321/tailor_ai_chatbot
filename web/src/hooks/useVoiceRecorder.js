@@ -15,6 +15,16 @@ function getSpeechRecognition() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
+/** iOS Safari cannot share the mic between Speech API and getUserMedia. */
+function isIosDevice() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return (
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
 export function useVoiceRecorder({ onInterimTranscript } = {}) {
   const [phase, setPhase] = useState("idle"); // idle | recording
   const [elapsed, setElapsed] = useState(0);
@@ -30,6 +40,7 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
   const recognitionRef = useRef(null);
   const speechTranscriptRef = useRef("");
   const speechFinalRef = useRef("");
+  const isRecordingRef = useRef(false);
 
   const cleanupAudio = useCallback(() => {
     if (processorRef.current) {
@@ -69,6 +80,7 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
 
   useEffect(() => {
     return () => {
+      isRecordingRef.current = false;
       if (timerRef.current) clearInterval(timerRef.current);
       cleanupRecognition();
       cleanupAudio();
@@ -76,6 +88,8 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
   }, [cleanupAudio, cleanupRecognition]);
 
   const startWavCapture = useCallback(async () => {
+    if (streamRef.current) return;
+
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
@@ -110,9 +124,11 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
     const SpeechRecognition = getSpeechRecognition();
     if (!SpeechRecognition) return false;
 
+    const ios = isIosDevice();
     const recognition = new SpeechRecognition();
     recognition.lang = "ml-IN";
-    recognition.continuous = true;
+    // iOS stops after each phrase unless we restart; continuous=true often fails.
+    recognition.continuous = !ios;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
@@ -142,9 +158,29 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
     recognition.onerror = (event) => {
       if (event.error === "not-allowed") {
         setError("മൈക്രോഫോൺ അനുമതി നൽകിയില്ല.");
-      } else if (event.error !== "aborted" && event.error !== "no-speech") {
-        // Fall back silently — wav capture may still work
-        setInputMode("wav");
+        return;
+      }
+
+      if (event.error === "aborted" || event.error === "no-speech") return;
+
+      // iOS: Speech API lost the mic — fall back to WAV + server transcription.
+      if (ios && !streamRef.current) {
+        startWavCapture().catch(() => {
+          setError("മൈക്രോഫോൺ അനുമതി നൽകിയില്ല. ക്രമീകരണങ്ങളിൽ മൈക്ക് ഓൺ ചെയ്യുക.");
+        });
+        return;
+      }
+
+      if (!ios) setInputMode("wav");
+    };
+
+    recognition.onend = () => {
+      if (ios && isRecordingRef.current && recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch {
+          /* already running */
+        }
       }
     };
 
@@ -152,7 +188,7 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
     recognition.start();
     setInputMode("speech-api");
     return true;
-  }, [onInterimTranscript]);
+  }, [onInterimTranscript, startWavCapture]);
 
   const startRecording = useCallback(async () => {
     setError(null);
@@ -165,11 +201,17 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
     }
 
     try {
+      const ios = isIosDevice();
       const speechStarted = startSpeechRecognition();
-      await startWavCapture();
 
-      if (!speechStarted) setInputMode("wav");
+      // Desktop: speech + WAV in parallel (live text + Gemini fallback).
+      // iOS: speech only first — parallel getUserMedia breaks live transcription.
+      if (!ios || !speechStarted) {
+        await startWavCapture();
+        if (!speechStarted) setInputMode("wav");
+      }
 
+      isRecordingRef.current = true;
       startTimeRef.current = Date.now();
       setElapsed(0);
       setPhase("recording");
@@ -180,6 +222,7 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
 
       return true;
     } catch {
+      isRecordingRef.current = false;
       cleanupRecognition();
       cleanupAudio();
       setError("മൈക്രോഫോൺ അനുമതി നൽകിയില്ല. ക്രമീകരണങ്ങളിൽ മൈക്ക് ഓൺ ചെയ്യുക.");
@@ -189,6 +232,7 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
 
   const stopRecording = useCallback(() => {
     return new Promise((resolve) => {
+      isRecordingRef.current = false;
       const durationMs = Date.now() - startTimeRef.current;
 
       if (timerRef.current) {
@@ -271,6 +315,8 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
   }, [cleanupAudio, cleanupRecognition]);
 
   const cancelRecording = useCallback(() => {
+    isRecordingRef.current = false;
+
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;

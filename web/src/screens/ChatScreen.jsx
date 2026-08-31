@@ -582,7 +582,7 @@ export default function ChatScreen() {
               <span className="recording-label">
                 {inputMode === "speech-api"
                   ? "കേൾക്കുന്നു… സംസാരിക്കുക"
-                  : "റിക്കോർഡ് ചെയ്യുന്നു…"}
+                  : "റിക്കോർഡ് ചെയ്യുന്നു… നിർത്തിയ ശേഷം എഴുത്ത് വരും"}
               </span>
               <span className="recording-timer">{elapsedLabel}</span>
             </div>
