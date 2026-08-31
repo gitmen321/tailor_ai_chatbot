@@ -3,6 +3,8 @@ import { mergeFloat32, wavToBase64 } from "../utils/wavEncoder.js";
 
 const SAMPLE_RATE = 16000;
 const MIN_DURATION_MS = 1200;
+/** If mobile speech API is silent, start WAV backup after this delay. */
+const MOBILE_WAV_FALLBACK_MS = 2500;
 
 function formatElapsed(seconds) {
   const m = Math.floor(seconds / 60);
@@ -15,7 +17,6 @@ function getSpeechRecognition() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
-/** iOS Safari cannot share the mic between Speech API and getUserMedia. */
 function isIosDevice() {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
@@ -23,6 +24,13 @@ function isIosDevice() {
     /iPad|iPhone|iPod/.test(ua) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
   );
+}
+
+/** Phones/tablets — cannot share mic between Speech API and getUserMedia. */
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+  if (isIosDevice()) return true;
+  return /Android/i.test(navigator.userAgent);
 }
 
 export function useVoiceRecorder({ onInterimTranscript } = {}) {
@@ -36,11 +44,19 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
   const processorRef = useRef(null);
   const samplesRef = useRef([]);
   const timerRef = useRef(null);
+  const wavFallbackTimerRef = useRef(null);
   const startTimeRef = useRef(0);
   const recognitionRef = useRef(null);
   const speechTranscriptRef = useRef("");
   const speechFinalRef = useRef("");
   const isRecordingRef = useRef(false);
+
+  const clearWavFallbackTimer = useCallback(() => {
+    if (wavFallbackTimerRef.current) {
+      clearTimeout(wavFallbackTimerRef.current);
+      wavFallbackTimerRef.current = null;
+    }
+  }, []);
 
   const cleanupAudio = useCallback(() => {
     if (processorRef.current) {
@@ -81,13 +97,14 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
   useEffect(() => {
     return () => {
       isRecordingRef.current = false;
+      clearWavFallbackTimer();
       if (timerRef.current) clearInterval(timerRef.current);
       cleanupRecognition();
       cleanupAudio();
     };
-  }, [cleanupAudio, cleanupRecognition]);
+  }, [cleanupAudio, cleanupRecognition, clearWavFallbackTimer]);
 
-  const startWavCapture = useCallback(async () => {
+  const startWavCapture = useCallback(async ({ background = false } = {}) => {
     if (streamRef.current) return;
 
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -105,6 +122,10 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
     const ctx = new AudioContext({ sampleRate: SAMPLE_RATE });
     audioContextRef.current = ctx;
 
+    if (ctx.state === "suspended") {
+      await ctx.resume();
+    }
+
     const source = ctx.createMediaStreamSource(stream);
     const processor = ctx.createScriptProcessor(4096, 1, 1);
     processorRef.current = processor;
@@ -117,18 +138,35 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
 
     source.connect(processor);
     processor.connect(ctx.destination);
-    setInputMode("wav");
+
+    // Keep speech-api UI when WAV is only a silent desktop fallback.
+    if (!background) {
+      setInputMode("wav");
+    }
   }, []);
+
+  const scheduleMobileWavFallback = useCallback(() => {
+    clearWavFallbackTimer();
+    wavFallbackTimerRef.current = setTimeout(() => {
+      if (!isRecordingRef.current || streamRef.current) return;
+      if (speechTranscriptRef.current.trim().length > 0) return;
+
+      startWavCapture({ background: Boolean(recognitionRef.current) }).catch(() => {
+        setError("മൈക്രോഫോൺ അനുമതി നൽകിയില്ല. ക്രമീകരണങ്ങളിൽ മൈക്ക് ഓൺ ചെയ്യുക.");
+      });
+    }, MOBILE_WAV_FALLBACK_MS);
+  }, [clearWavFallbackTimer, startWavCapture]);
 
   const startSpeechRecognition = useCallback(() => {
     const SpeechRecognition = getSpeechRecognition();
     if (!SpeechRecognition) return false;
 
     const ios = isIosDevice();
+    const mobile = isMobileDevice();
     const recognition = new SpeechRecognition();
     recognition.lang = "ml-IN";
-    // iOS stops after each phrase unless we restart; continuous=true often fails.
-    recognition.continuous = !ios;
+    // Mobile browsers often break continuous=true; restart manually on onend.
+    recognition.continuous = !mobile;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
@@ -153,6 +191,8 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
       const combined = `${finalText} ${interim}`.trim();
       speechTranscriptRef.current = combined;
       onInterimTranscript?.(combined);
+
+      if (combined) clearWavFallbackTimer();
     };
 
     recognition.onerror = (event) => {
@@ -163,19 +203,20 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
 
       if (event.error === "aborted" || event.error === "no-speech") return;
 
-      // iOS: Speech API lost the mic — fall back to WAV + server transcription.
-      if (ios && !streamRef.current) {
-        startWavCapture().catch(() => {
+      if (mobile && !streamRef.current) {
+        startWavCapture({ background: Boolean(recognitionRef.current) }).catch(() => {
           setError("മൈക്രോഫോൺ അനുമതി നൽകിയില്ല. ക്രമീകരണങ്ങളിൽ മൈക്ക് ഓൺ ചെയ്യുക.");
         });
         return;
       }
 
-      if (!ios) setInputMode("wav");
+      if (!mobile && streamRef.current) {
+        setInputMode("wav");
+      }
     };
 
     recognition.onend = () => {
-      if (ios && isRecordingRef.current && recognitionRef.current) {
+      if (mobile && isRecordingRef.current && recognitionRef.current) {
         try {
           recognitionRef.current.start();
         } catch {
@@ -188,12 +229,13 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
     recognition.start();
     setInputMode("speech-api");
     return true;
-  }, [onInterimTranscript, startWavCapture]);
+  }, [clearWavFallbackTimer, onInterimTranscript, startWavCapture]);
 
   const startRecording = useCallback(async () => {
     setError(null);
     speechTranscriptRef.current = "";
     speechFinalRef.current = "";
+    clearWavFallbackTimer();
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("ഈ ഉപകരണത്തിൽ മൈക്രോഫോൺ പിന്തുണയില്ല.");
@@ -201,14 +243,17 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
     }
 
     try {
-      const ios = isIosDevice();
+      const mobile = isMobileDevice();
       const speechStarted = startSpeechRecognition();
 
-      // Desktop: speech + WAV in parallel (live text + Gemini fallback).
-      // iOS: speech only first — parallel getUserMedia breaks live transcription.
-      if (!ios || !speechStarted) {
+      if (speechStarted && mobile) {
+        // Android/iOS: speech only — parallel WAV steals the mic and kills live text.
+        scheduleMobileWavFallback();
+      } else if (speechStarted) {
+        // Desktop: live speech + silent WAV fallback for Gemini.
+        await startWavCapture({ background: true });
+      } else {
         await startWavCapture();
-        if (!speechStarted) setInputMode("wav");
       }
 
       isRecordingRef.current = true;
@@ -223,16 +268,25 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
       return true;
     } catch {
       isRecordingRef.current = false;
+      clearWavFallbackTimer();
       cleanupRecognition();
       cleanupAudio();
       setError("മൈക്രോഫോൺ അനുമതി നൽകിയില്ല. ക്രമീകരണങ്ങളിൽ മൈക്ക് ഓൺ ചെയ്യുക.");
       return null;
     }
-  }, [cleanupAudio, cleanupRecognition, startSpeechRecognition, startWavCapture]);
+  }, [
+    cleanupAudio,
+    cleanupRecognition,
+    clearWavFallbackTimer,
+    scheduleMobileWavFallback,
+    startSpeechRecognition,
+    startWavCapture,
+  ]);
 
   const stopRecording = useCallback(() => {
     return new Promise((resolve) => {
       isRecordingRef.current = false;
+      clearWavFallbackTimer();
       const durationMs = Date.now() - startTimeRef.current;
 
       if (timerRef.current) {
@@ -263,7 +317,6 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
             return;
           }
 
-          // Speech API empty — use WAV for server transcription
           const merged = mergeFloat32(samplesRef.current);
           samplesRef.current = [];
 
@@ -292,7 +345,6 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
         return;
       }
 
-      // WAV-only path
       const merged = mergeFloat32(samplesRef.current);
       samplesRef.current = [];
 
@@ -312,10 +364,11 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
         source: "gemini",
       });
     });
-  }, [cleanupAudio, cleanupRecognition]);
+  }, [cleanupAudio, cleanupRecognition, clearWavFallbackTimer]);
 
   const cancelRecording = useCallback(() => {
     isRecordingRef.current = false;
+    clearWavFallbackTimer();
 
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -329,7 +382,7 @@ export function useVoiceRecorder({ onInterimTranscript } = {}) {
     speechFinalRef.current = "";
     setPhase("idle");
     setInputMode(null);
-  }, [cleanupAudio, cleanupRecognition]);
+  }, [cleanupAudio, cleanupRecognition, clearWavFallbackTimer]);
 
   return {
     phase,
