@@ -9,6 +9,16 @@ const host = "0.0.0.0";
 let apiReady = false;
 let apiError = null;
 
+// CORS must run before every route — including /api/health (Netlify → Railway).
+app.use(
+  cors({
+    origin: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+app.use(express.json({ limit: "20mb" }));
+
 // Railway healthcheck — must respond before heavy modules finish loading.
 app.get("/api/health", (_req, res) => {
   res.status(200).json({ ok: true, ready: apiReady });
@@ -21,15 +31,6 @@ app.get("/", (_req, res) => {
     ready: apiReady,
   });
 });
-
-app.use(
-  cors({
-    origin: true,
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
-
-app.use(express.json({ limit: "20mb" }));
 
 async function mountApi() {
   const { createApiRouter } = await import("./api.js");
