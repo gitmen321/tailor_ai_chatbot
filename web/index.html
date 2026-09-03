@@ -22,6 +22,9 @@
     />
     <meta name="apple-mobile-web-app-title" content="Tailor Assistant" />
     <meta name="format-detection" content="telephone=no" />
+    <!-- The splash blocks on this model, so start it in parallel with the JS
+         bundle instead of waiting for React to mount and request it. -->
+    <link rel="preload" as="fetch" type="model/gltf-binary" href="/models/machine.glb" crossorigin="anonymous" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

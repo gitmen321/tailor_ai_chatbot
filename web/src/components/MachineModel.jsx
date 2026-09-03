@@ -1,4 +1,5 @@
-import { Component, Suspense, useEffect, useRef, useState } from "react";
+import { Component, Suspense, useMemo, useRef } from "react";
+import { Box3, Vector3 } from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Center, useGLTF } from "@react-three/drei";
 
@@ -76,9 +77,23 @@ function PrimitiveMachine({ spinning = true }) {
   );
 }
 
+/** Half-extent the model is normalised to, so framing is model-independent. */
+const FIT_RADIUS = 0.9;
+
 function GltfMachine({ spinning = true }) {
   const group = useRef(null);
   const { scene } = useGLTF(MODEL_URL);
+
+  const object = useMemo(() => scene.clone(true), [scene]);
+
+  // Normalise to a known size: the raw model is authored at arbitrary scale, so
+  // a fixed camera would frame every model differently. Use the Y-rotation
+  // sweep radius, not just the bounding box, so it never clips while spinning.
+  const fit = useMemo(() => {
+    const size = new Box3().setFromObject(object).getSize(new Vector3());
+    const radius = Math.max(Math.hypot(size.x, size.z) / 2, size.y / 2);
+    return radius > 0 ? FIT_RADIUS / radius : 1;
+  }, [object]);
 
   useFrame((_, delta) => {
     if (spinning && group.current) {
@@ -87,9 +102,9 @@ function GltfMachine({ spinning = true }) {
   });
 
   return (
-    <group ref={group}>
+    <group ref={group} scale={fit}>
       <Center>
-        <primitive object={scene.clone()} scale={1} />
+        <primitive object={object} />
       </Center>
     </group>
   );
@@ -105,53 +120,26 @@ export default function MachineModel({
   spinning = true,
   className = "",
 }) {
-  const [useGltf, setUseGltf] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(MODEL_URL, { method: "HEAD" });
-        if (!cancelled) {
-          setUseGltf(res.ok);
-          if (res.ok) {
-            try {
-              useGLTF.preload(MODEL_URL);
-            } catch {
-              // ignore preload errors
-            }
-          }
-        }
-      } catch {
-        if (!cancelled) setUseGltf(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const height =
     size === "lg" ? "min(42dvh, 280px)" : size === "sm" ? "96px" : "128px";
 
+  // Framed against the normalised FIT_RADIUS above, so these stay valid if the
+  // model is ever swapped.
   const camera =
     size === "lg"
-      ? { position: [2.2, 1.6, 3.0], fov: 38 }
-      : { position: [1.9, 1.4, 2.6], fov: 42 };
+      ? { position: [1.55, 1.05, 2.15], fov: 38 }
+      : { position: [1.45, 1.0, 2.0], fov: 42 };
 
   // While the real model streams in, render nothing rather than the primitive
   // stand-in — showing the wrong machine reads as a bug. The primitive is kept
   // strictly for the failure case.
-  const content =
-    useGltf === null ? null : useGltf ? (
-      <ModelErrorBoundary fallback={<PrimitiveMachine spinning={spinning} />}>
-        <Suspense fallback={null}>
-          <GltfMachine spinning={spinning} />
-        </Suspense>
-      </ModelErrorBoundary>
-    ) : (
-      <PrimitiveMachine spinning={spinning} />
-    );
+  const content = (
+    <ModelErrorBoundary fallback={<PrimitiveMachine spinning={spinning} />}>
+      <Suspense fallback={null}>
+        <GltfMachine spinning={spinning} />
+      </Suspense>
+    </ModelErrorBoundary>
+  );
 
   return (
     <div className={`machine-stage ${className}`} style={{ height }}>
@@ -172,4 +160,4 @@ export default function MachineModel({
   );
 }
 
-// Optional preload is handled after HEAD check inside the component.
+useGLTF.preload(MODEL_URL);

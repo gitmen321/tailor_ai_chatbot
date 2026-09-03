@@ -61,9 +61,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // App-shell only — do not precache the large .glb model.
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
-        globIgnores: ["**/models/**"],
+        // The model is on the splash, so every launch needs it — precaching it
+        // makes repeat launches instant and keeps the splash working offline.
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest,glb}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api/],
       },
@@ -79,7 +79,6 @@ export default defineConfig({
       },
     },
   },
-  // 59MB GLB — raise limit so Vite doesn't warn endlessly during assets copy.
   assetsInclude: ["**/*.glb"],
   build: {
     chunkSizeWarningLimit: 1500,
