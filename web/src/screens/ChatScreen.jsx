@@ -11,6 +11,8 @@ import {
   transcribeAudio,
 } from "../api.js";
 import Icon, { BrandMark } from "../components/Icon.jsx";
+import IosInstallHint from "../components/IosInstallHint.jsx";
+import PwaInstallBanner from "../components/PwaInstallBanner.jsx";
 import { useVoiceSettings } from "../contexts/VoiceSettingsContext.jsx";
 import { useWallpaper } from "../contexts/WallpaperContext.jsx";
 import { useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
@@ -454,6 +456,9 @@ export default function ChatScreen() {
           <span>{speechError}</span>
         </div>
       ) : null}
+
+      <PwaInstallBanner />
+      <IosInstallHint />
 
       {isChatUiCleared() ? (
         <div className="chat-ui-notice">

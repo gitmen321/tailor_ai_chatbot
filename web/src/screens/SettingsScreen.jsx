@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import InstallSettingsCard from "../components/InstallSettingsCard.jsx";
 import ScreenHeader from "../components/ScreenHeader.jsx";
 import { useTheme } from "../contexts/ThemeContext.jsx";
 import { useVoiceSettings } from "../contexts/VoiceSettingsContext.jsx";
@@ -58,6 +59,14 @@ export default function SettingsScreen() {
       />
 
       <div className="sub-scroll">
+        <section className="settings-group">
+          <h2 className="settings-group-title">
+            <Icon name="download" size={13} />
+            App
+          </h2>
+          <InstallSettingsCard />
+        </section>
+
         <section className="settings-group">
           <h2 className="settings-group-title">
             <Icon name="sun" size={13} />

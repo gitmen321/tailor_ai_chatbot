@@ -139,12 +139,13 @@ export default function MachineModel({
       ? { position: [2.2, 1.6, 3.0], fov: 38 }
       : { position: [1.9, 1.4, 2.6], fov: 42 };
 
+  // While the real model streams in, render nothing rather than the primitive
+  // stand-in — showing the wrong machine reads as a bug. The primitive is kept
+  // strictly for the failure case.
   const content =
-    useGltf === null ? (
-      <PrimitiveMachine spinning={spinning} />
-    ) : useGltf ? (
+    useGltf === null ? null : useGltf ? (
       <ModelErrorBoundary fallback={<PrimitiveMachine spinning={spinning} />}>
-        <Suspense fallback={<PrimitiveMachine spinning={spinning} />}>
+        <Suspense fallback={null}>
           <GltfMachine spinning={spinning} />
         </Suspense>
       </ModelErrorBoundary>

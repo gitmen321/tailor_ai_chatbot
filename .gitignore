@@ -15,5 +15,11 @@ whatsapp/auth_info/
 web/node_modules/
 web/.env
 web/dist/
-web/public/models/*.glb
+web/dev-dist/
+
+# The optimized machine model (~5 MB) must be committed, otherwise Netlify
+# builds ship without it and the splash falls back to the primitive shape.
+# Keep raw/unoptimized source models out of the repo.
+web/public/models/*.raw.glb
+web/public/models/*-source.glb
 

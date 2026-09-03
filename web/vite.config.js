@@ -7,7 +7,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg", "icons.svg"],
+      includeAssets: ["favicon.svg", "favicon-32.png", "apple-touch-icon.png"],
+      // Without this the service worker only exists in production builds, so
+      // installability can't be checked with `npm run dev`.
+      devOptions: {
+        enabled: true,
+        type: "module",
+      },
       manifest: {
         id: "/",
         name: "Tailor Assistant",
@@ -36,14 +42,18 @@ export default defineConfig({
             src: "/pwa-192.png",
             sizes: "192x192",
             type: "image/png",
+            purpose: "any",
           },
           {
             src: "/pwa-512.png",
             sizes: "512x512",
             type: "image/png",
+            purpose: "any",
           },
           {
-            src: "/pwa-512.png",
+            // Separate art with a safe zone — a plain "any" icon gets its
+            // corners cropped by Android's mask.
+            src: "/pwa-maskable-512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",
