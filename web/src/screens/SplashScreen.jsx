@@ -4,10 +4,10 @@ import { useProgress } from "@react-three/drei";
 import Icon from "../components/Icon.jsx";
 import MachineModel from "../components/MachineModel.jsx";
 
-/** Hold the splash at least this long so it never flashes past. */
-const MIN_SPLASH_MS = 1800;
+/** Hold the splash at least this long so the model gets a proper look. */
+const MIN_SPLASH_MS = 5000;
 /** Never block on a slow/failed model download beyond this. */
-const MAX_SPLASH_MS = 7000;
+const MAX_SPLASH_MS = 9000;
 
 export default function SplashScreen() {
   const navigate = useNavigate();
