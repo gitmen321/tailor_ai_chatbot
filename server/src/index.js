@@ -9,20 +9,28 @@ const host = "0.0.0.0";
 let apiReady = false;
 let apiError = null;
 
-// CORS must run before every route — including /api/health (Netlify → Railway).
+// Reflect the request Origin so Netlify, PWAs, and local Vite all work.
+// Always include Authorization so chat/history preflights succeed.
 app.use(
   cors({
     origin: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    maxAge: 86400,
+    optionsSuccessStatus: 204,
   })
 );
+app.options("*", cors());
 
 app.use(express.json({ limit: "20mb" }));
 
-// Railway healthcheck — must respond before heavy modules finish loading.
-app.get("/api/health", (_req, res) => {
+function sendHealth(_req, res) {
   res.status(200).json({ ok: true, ready: apiReady });
-});
+}
+
+// Railway healthcheck — must respond before heavy modules finish loading.
+app.get("/api/health", sendHealth);
+app.get("/health", sendHealth);
 
 app.get("/", (_req, res) => {
   res.status(200).json({

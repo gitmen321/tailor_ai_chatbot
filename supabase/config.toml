@@ -1,0 +1,6 @@
+# Linked to the existing Supabase project (home_ai_agent).
+project_id = "vdohxjqzczhmgfuedrwj"
+
+[functions.api]
+enabled = true
+verify_jwt = false

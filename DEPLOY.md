@@ -1,51 +1,45 @@
-# Deploy Tailor Assistant (Netlify + Railway)
+# Deploy Tailor Assistant (Netlify + Supabase Edge Functions)
 
-Host the **web PWA** on [Netlify](https://www.netlify.com/) and the **Node API** on [Railway](https://railway.app/). Both connect to the same Supabase project you use locally.
+Host the **web PWA** on [Netlify](https://www.netlify.com/) and the **API** as a [Supabase Edge Function](https://supabase.com/docs/guides/functions). Both use the same `home_ai_agent` Supabase project.
 
 ```
 Phone / browser (PWA on Netlify)
         │  HTTPS + Bearer token
         ▼
-Railway API (server/)
+Supabase Edge Function  functions/v1/api
         │
         ▼
-Supabase + Gemini + YouTube / Tavily
+Postgres / pgvector + Gemini + YouTube / Tavily
 ```
+
+The old Node/Express server on Railway is no longer required for chat, history, transcribe, or TTS.
 
 ---
 
 ## Before you start
 
-1. **Push code to GitHub** — Netlify and Railway deploy from `https://github.com/gitmen321/tailor_ai_chatbot`.
-2. **Generate an API token** (use the same value on server and web):
-
-   ```powershell
-   # PowerShell — copy the output
-   -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | ForEach-Object { [char]$_ })
-   ```
-
-3. **Optional 3D model** — copy your sewing-machine GLB to `web/public/models/machine.glb` before building (large file is gitignored). The app works without it (shows a silhouette).
+1. Push code to GitHub (`https://github.com/gitmen321/tailor_ai_chatbot`).
+2. Use the same `API_AUTH_TOKEN` on the Edge Function secrets and on Netlify (`VITE_API_AUTH_TOKEN`).
+3. Optional 3D model — copy your sewing-machine GLB to `web/public/models/machine.glb` before building.
 
 ---
 
-## Part 1 — Deploy the server on Railway
+## Part 1 — Deploy the API as a Supabase Edge Function
 
-### 1. Create the project
+Do this from the repo root with the [Supabase CLI](https://supabase.com/docs/guides/cli).
 
-1. Log in at [railway.app](https://railway.app/).
-2. **New Project → Deploy from GitHub repo** → select `gitmen321/tailor_ai_chatbot`.
-3. Open the new service → **Settings**:
-   - **Root Directory**: `server`
-   - **Start Command**: `npm start` (also set in `server/railway.toml`)
-4. **Settings → Networking → Generate Domain** — copy the URL, e.g. `https://tailor-assistant-production.up.railway.app` (no trailing slash, **no port number**).
+```powershell
+npx supabase login
+npx supabase link --project-ref vdohxjqzczhmgfuedrwj
+```
 
-   If Railway shows a port like `3888` under Public Networking, that is the **internal** container port only. The browser URL is always `https://….up.railway.app` without `:3888`. Set the networking port to match what the deploy logs print as `PORT=` (Railway sets this automatically).
+Set secrets (copy from `server/.env` into `supabase/.env`, then):
 
-### 2. Environment variables
+```powershell
+npx supabase secrets set --env-file supabase/.env
+```
 
-In Railway → your service → **Variables**, add everything from `server/.env.example`.
-
-**Critical:** use the **service role** key for `SUPABASE_SERVICE_ROLE_KEY` (from Supabase → Project Settings → API → `service_role` secret). The `anon` key will not work for server-side DB writes.
+Required secrets:
 
 | Variable | Notes |
 |----------|--------|
@@ -54,33 +48,33 @@ In Railway → your service → **Variables**, add everything from `server/.env.
 | `GEMINI_TTS_MODEL` | e.g. `gemini-3.1-flash-tts-preview` |
 | `GEMINI_TTS_VOICE` | e.g. `Kore` |
 | `PRIMARY_USER_NAME` | Display name in prompts |
-| `SUPABASE_URL` | From Supabase → Project Settings → API |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Service role** key (server only — never put in the web app) |
-| `YOUTUBE_API_KEY` | Optional; enables YouTube Data API search |
+| `YOUTUBE_API_KEY` | Optional |
 | `TAVILY_API_KEY` | Optional web search |
 | `MACHINE_BRAND` | e.g. `Usha` |
 | `MACHINE_MODEL` | e.g. `Quick Stitch Master` |
-| `API_AUTH_TOKEN` | The secret token you generated above |
+| `API_AUTH_TOKEN` | Shared with the PWA |
 
-Railway sets `PORT` automatically — do not override it.
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically. Do not put the service role key in the web app.
 
-**Node.js 22+** is required (Supabase client needs native WebSocket or the bundled `ws` transport). This repo pins Node 22 via `server/package.json` engines, `server/.nvmrc`, and `server/nixpacks.toml`.
+JWT verification is off (`supabase/config.toml`) because the PWA uses `API_AUTH_TOKEN`, not a Supabase user JWT.
 
-### 3. Verify the API
+Deploy:
 
-After deploy finishes, open:
-
-```
-https://YOUR-RAILWAY-DOMAIN.up.railway.app/api/health
+```powershell
+npx supabase functions deploy api --no-verify-jwt
 ```
 
-You should see: `{"ok":true}`
+Health check:
+
+```
+https://vdohxjqzczhmgfuedrwj.supabase.co/functions/v1/api/health
+```
+
+You should see JSON with `"ok": true` and `"runtime": "supabase-edge"`.
 
 ---
 
 ## Part 2 — Deploy the web PWA on Netlify
-
-The app is already a PWA (`vite-plugin-pwa`: manifest, service worker, install prompts, offline app shell).
 
 ### 1. Connect the repo
 
@@ -95,50 +89,40 @@ The app is already a PWA (`vite-plugin-pwa`: manifest, service worker, install p
 | Build command | `npm run build` |
 | Publish directory | `dist` |
 
-`web/netlify.toml` already configures SPA redirects, manifest MIME type, and service-worker cache headers.
+`web/netlify.toml` proxies `/api/*` to the Edge Function:
+
+`https://vdohxjqzczhmgfuedrwj.supabase.co/functions/v1/api/:splat`
 
 ### 3. Environment variables (build time)
 
-**Site settings → Environment variables** — Vite bakes these in at build time, so **trigger a new deploy** after changing them.
-
 | Name | Value |
 |------|--------|
-| `VITE_API_AUTH_TOKEN` | **Same** value as `API_AUTH_TOKEN` on Railway (required for chat) |
+| `VITE_API_AUTH_TOKEN` | **Same** value as `API_AUTH_TOKEN` on the Edge Function |
 | `VITE_MACHINE_BRAND` | e.g. `Usha` |
 | `VITE_MACHINE_MODEL` | e.g. `Quick Stitch Master` |
-| `VITE_SERVER_API_URL` | **Optional.** Leave unset to use same-origin `/api/*` (Netlify proxies to Railway via `web/netlify.toml`). Set only if you want the browser to call Railway directly. |
+| `VITE_SERVER_API_URL` | **Leave unset**. The PWA calls same-origin `/api/*`. |
 
-If the app shows **Server offline** after deploy, the usual cause is a Netlify build that still has `VITE_SERVER_API_URL=http://localhost:3000`. Clear that variable (or leave empty), set `VITE_API_AUTH_TOKEN`, then **Deploy → Trigger deploy**.
-
-### 4. Deploy
-
-Click **Deploy site**. When the build succeeds, Netlify gives you a URL like `https://random-name.netlify.app`.
-
-Optional: **Domain management** → add a custom domain.
+Trigger a new Netlify deploy after changing Vite env vars.
 
 ---
 
-## Part 3 — Test the live PWA
+## Local development
 
-1. Open the Netlify URL on your phone (Chrome / Safari).
-2. **Android / desktop Chrome**: use the install banner or browser menu → **Install app**.
-3. **iPhone Safari**: Share → **Add to Home Screen** (the app shows a Malayalam hint).
-4. In the app, send a chat message — it should hit Railway → Supabase/Gemini.
+```powershell
+# API (Deno)
+deno run --allow-net --allow-env --env-file=server/.env --port=8787 supabase/functions/api/index.ts
+# or: $env:PORT=8787; deno run --allow-net --allow-env --env-file=server/.env supabase/functions/api/index.ts
 
-### Confirm PWA in Chrome DevTools
+# PWA
+cd web
+npm run dev
+```
 
-1. Open the Netlify site → F12 → **Application** tab.
-2. **Manifest** — name, icons, `display: standalone`.
-3. **Service workers** — `sw.js` registered and activated.
+Vite proxies `/api` to `http://127.0.0.1:8787`.
 
----
+`server/` is still useful as a Node CLI for `npm run ingest` (embedding the machine manual). You do not need to host Express.
 
-## Order of operations (recommended)
-
-1. Deploy **Railway** first → copy the public API URL.
-2. Set Netlify env vars with that URL + shared auth token.
-3. Deploy **Netlify**.
-4. Test health endpoint, then chat from the PWA.
+WhatsApp (`whatsapp/`) is a persistent Baileys socket. That still needs a long-running process; point `SERVER_API_URL` at `https://vdohxjqzczhmgfuedrwj.supabase.co/functions/v1`.
 
 ---
 
@@ -146,23 +130,7 @@ Optional: **Domain management** → add a custom domain.
 
 | Problem | Fix |
 |---------|-----|
-| `Unauthorized` in chat | `VITE_API_AUTH_TOKEN` on Netlify must match `API_AUTH_TOKEN` on Railway. Redeploy Netlify after changing. |
-| Web shows **Server offline** | Railway is up but Netlify still calls `localhost`. Remove `VITE_SERVER_API_URL` from Netlify (use `/api` proxy) or set it to your Railway HTTPS URL, set `VITE_API_AUTH_TOKEN`, then **trigger a new Netlify deploy**. |
-| `VITE_SERVER_API_URL is not set` | No longer required — the app uses same-origin `/api` on Netlify. Redeploy with the latest `web/netlify.toml`. |
-| CORS errors | Server already allows browser origins (`cors({ origin: true })`). Check the API URL is HTTPS and correct. |
-| PWA won’t install | Site must be served over HTTPS (Netlify does this). Manifest and SW must load — check DevTools → Application. |
-| Chat times out | Railway free tier can cold-start; retry after ~30s. Check Railway logs for Gemini/Supabase errors. |
-| Railway healthcheck fails | Confirm **Root Directory** is `server`, all env vars are set (especially `SUPABASE_SERVICE_ROLE_KEY`), then open `/api/health` on the Railway domain. Server binds to `0.0.0.0` and exposes health before API modules load. |
-| No 3D machine model | Add `web/public/models/machine.glb` locally, commit or use Netlify build plugin / large-file hosting, then rebuild. |
-
----
-
-## Local development vs production
-
-| | Local | Production |
-|---|--------|------------|
-| Web | `cd web && npm run dev` | Netlify |
-| API | `cd server && npm run dev` | Railway |
-| `VITE_SERVER_API_URL` | `http://127.0.0.1:3000` in `web/.env` | Railway HTTPS URL on Netlify |
-
-The phone PWA **cannot** call `localhost` on your laptop — it must use the public Railway URL.
+| `Unauthorized` | `VITE_API_AUTH_TOKEN` on Netlify must match `API_AUTH_TOKEN` secret. Redeploy Netlify after changing. |
+| Platform `401` before your code runs | Deploy with `--no-verify-jwt` (already set in `config.toml`). |
+| Server offline in the PWA | Open `/api/health` on the Netlify origin, then the function URL above. |
+| Chat times out | Edge Functions have a wall-clock limit; check function logs in the Supabase dashboard. |

@@ -2,8 +2,8 @@
   command = "npm run build"
   publish = "dist"
 
-[build.environment]
-  VITE_SERVER_API_URL = "https://tailoraichatbot-production.up.railway.app"
+# Do not bake VITE_SERVER_API_URL here. The PWA must call same-origin /api
+# so Netlify can proxy to the Supabase Edge Function and the browser never hits CORS.
 
 [[headers]]
   for = "/manifest.webmanifest"
@@ -23,7 +23,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "https://tailoraichatbot-production.up.railway.app/api/:splat"
+  to = "https://vdohxjqzczhmgfuedrwj.supabase.co/functions/v1/api/:splat"
   status = 200
   force = true
 

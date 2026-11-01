@@ -8,7 +8,8 @@
     "build": "vite build",
     "icons": "node scripts/generate-icons.mjs",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:api": "node scripts/checkProductionApi.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
