@@ -1,6 +1,6 @@
-# Deploy Tailor Assistant (Netlify + Supabase Edge Functions)
+# Deploy Tailor Assistant (Netlify or Vercel + Supabase Edge Functions)
 
-Host the **web PWA** on [Netlify](https://www.netlify.com/) and the **API** as a [Supabase Edge Function](https://supabase.com/docs/guides/functions). Both use the same `home_ai_agent` Supabase project.
+Host the **web PWA** on [Netlify](https://www.netlify.com/) or [Vercel](https://vercel.com/) and the **API** as a [Supabase Edge Function](https://supabase.com/docs/guides/functions). Both use the same `home_ai_agent` Supabase project.
 
 ```
 Phone / browser (PWA on Netlify)
@@ -53,10 +53,13 @@ Required secrets:
 | `MACHINE_BRAND` | e.g. `Usha` |
 | `MACHINE_MODEL` | e.g. `Quick Stitch Master` |
 | `API_AUTH_TOKEN` | Shared with the PWA |
+| `API_ALLOWED_ORIGINS` | Comma-separated exact PWA origins, e.g. `https://your-site.netlify.app` |
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically. Do not put the service role key in the web app.
 
 JWT verification is off (`supabase/config.toml`) because the PWA uses `API_AUTH_TOKEN`, not a Supabase user JWT.
+
+The shared token is visible in the public PWA bundle and is only a demo gate, not user authentication. See [SECURITY.md](./SECURITY.md) before using this for multiple users or private data.
 
 Deploy:
 
@@ -103,6 +106,21 @@ You should see JSON with `"ok": true` and `"runtime": "supabase-edge"`.
 | `VITE_SERVER_API_URL` | **Leave unset**. The PWA calls same-origin `/api/*`. |
 
 Trigger a new Netlify deploy after changing Vite env vars.
+
+## Part 3 — Deploy the web PWA on Vercel
+
+The repository includes [`vercel.json`](./vercel.json). Import the repository in Vercel and keep the project root at the repository root. Vercel will install dependencies in `web/`, run the Vite build, publish `web/dist`, proxy `/api/*` to the same Supabase Edge Function, and serve the React SPA fallback.
+
+Set these Vercel environment variables for the **Production**, **Preview**, and **Development** environments as needed:
+
+| Name | Value |
+|------|-------|
+| `VITE_API_AUTH_TOKEN` | **Same** value as `API_AUTH_TOKEN` on the Edge Function |
+| `VITE_MACHINE_BRAND` | e.g. `Usha` |
+| `VITE_MACHINE_MODEL` | e.g. `Quick Stitch Master` |
+| `VITE_SERVER_API_URL` | Leave unset; Vercel serves the `/api/*` rewrite |
+
+After the first Vercel deployment, add the exact Vercel production URL to the Edge Function's comma-separated `API_ALLOWED_ORIGINS` secret, then redeploy the function. Add any custom domain origins there as well. Keep `web/netlify.toml` if you also want Netlify deployments.
 
 ---
 

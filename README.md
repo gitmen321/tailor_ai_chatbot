@@ -32,7 +32,13 @@ I am planning to expand this to all Mallu tailors. Same idea: Malayalam-first he
 | Model | Gemini (chat, Malayalam STT/TTS, embeddings) |
 | Knowledge | Supabase Postgres + pgvector |
 | WhatsApp | Baileys (optional long-running process) |
-| Hosting | Netlify (web) + Supabase Edge Functions (API) |
+| Hosting | Netlify or Vercel (web) + Supabase Edge Functions (API) |
+
+## Architecture and security
+
+This is a modular monorepo organized by deployable boundary: the React PWA is the presentation layer, the Supabase Edge Function is the HTTP/application layer, and Postgres/pgvector plus Gemini/search providers form the data and integration layer. The agent flow retrieves manual chunks first, selectively searches external sources, builds grounded context, and generates a response. The Node server contains the manual ingestion utility and an Express reference runtime; WhatsApp is an optional adapter to the same chat API.
+
+The primary API now validates and bounds media requests, applies an origin allowlist, and returns generic server errors. Read [SECURITY.md](./SECURITY.md) for current protections and the authentication limitation: the shared token in a browser bundle is public and does not authenticate individual users.
 
 ## Repo layout
 
@@ -43,7 +49,7 @@ web/        Phone PWA (chat, settings, 3D machine on splash)
 whatsapp/   WhatsApp bridge into the same API
 ```
 
-Deploy notes live in [DEPLOY.md](./DEPLOY.md).
+Deploy notes for both hosts live in [DEPLOY.md](./DEPLOY.md). The repository keeps `web/netlify.toml` and also includes a root [`vercel.json`](./vercel.json), so either hosting workflow can be used without changing the application code.
 
 ## Run it locally
 
