@@ -7,6 +7,7 @@
 - JSON requests have a 12 MiB limit; text, audio, and image payloads have separate validation and size limits.
 - Internal failures return a generic response while details stay in server logs.
 - Netlify sends frame, MIME sniffing, referrer, permissions, and content security headers.
+- The CSP explicitly permits WebAssembly compilation required by the Meshopt decoder used by the compressed GLB model, while keeping normal script execution restricted to same-origin files.
 - `.env` files, WhatsApp session credentials, and build output are ignored by Git. Keep real credentials in deployment secret stores and rotate any credential that was ever committed or shared.
 
 ## Important authentication limitation

@@ -15,8 +15,10 @@ class ModelErrorBoundary extends Component {
     return { hasError: true };
   }
 
-  componentDidCatch() {
-    // Missing / corrupt GLB — fall back to primitives.
+  componentDidCatch(error) {
+    // Keep the visual fallback, but make production asset/decoder failures
+    // diagnosable instead of silently making the model look different.
+    console.error("Tailor Assistant: sewing-machine GLB failed to load", error);
   }
 
   render() {

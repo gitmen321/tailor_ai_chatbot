@@ -109,7 +109,7 @@ Trigger a new Netlify deploy after changing Vite env vars.
 
 ## Part 3 — Deploy the web PWA on Vercel
 
-The repository includes [`vercel.json`](./vercel.json). Import the repository in Vercel and keep the project root at the repository root. Vercel will install dependencies in `web/`, run the Vite build, publish `web/dist`, proxy `/api/*` to the same Supabase Edge Function, and serve the React SPA fallback.
+The repository includes [`vercel.json`](./vercel.json) for a repository-root Vercel project and [`web/vercel.json`](./web/vercel.json) for a Vercel project whose Root Directory is set to `web`. Either setup installs the PWA dependencies, runs the Vite build, publishes the correct `dist` directory, proxies `/api/*` to the same Supabase Edge Function, and serves the React SPA fallback. Use only one Root Directory setting in Vercel; do not configure both project styles at once.
 
 Set these Vercel environment variables for the **Production**, **Preview**, and **Development** environments as needed:
 
@@ -121,6 +121,8 @@ Set these Vercel environment variables for the **Production**, **Preview**, and 
 | `VITE_SERVER_API_URL` | Leave unset; Vercel serves the `/api/*` rewrite |
 
 After the first Vercel deployment, add the exact Vercel production URL to the Edge Function's comma-separated `API_ALLOWED_ORIGINS` secret, then redeploy the function. Add any custom domain origins there as well. Keep `web/netlify.toml` if you also want Netlify deployments.
+
+The 3D model uses Meshopt WebAssembly decoding. The included Vercel and Netlify CSP headers contain `wasm-unsafe-eval`; keep that directive if you customize the security headers or the optimized model will fall back to the primitive silhouette.
 
 ---
 
