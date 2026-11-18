@@ -4,7 +4,7 @@ I actually built this for my mom.
 
 She is a tailor. She works on an Usha Quick Stitch machine every day, and most of the help she needs is in Malayalam — how to set the machine, why the thread is looping, how to stitch a blouse, that kind of thing. Generic English chatbots are useless for that. So I made her an assistant that talks like it knows her, knows her machine, and answers in Malayalam.
 
-She can use it from her phone as an installable PWA, or over WhatsApp. She can type, send a photo of the machine, or just talk. If the manual has the answer, it uses that. If it does not, it looks up tutorials and remembers what it learned.
+The PWA is the multi-user product: each tailor signs in, saves their name and machine, then chats by text, photo, or voice. A separate Baileys WhatsApp bot remains available through its legacy server credential; it is not linked to PWA accounts in this release.
 
 Live app: [https://tailoraichatbot.vercel.app/chat](https://tailoraichatbot.vercel.app/chat)
 
@@ -20,8 +20,8 @@ I am planning to expand this to all Mallu tailors. Same idea: Malayalam-first he
 - Voice in, voice out — Malayalam speech-to-text and TTS, plus photos
 - RAG over the real machine manual (chunked, embedded, stored in Postgres + pgvector)
 - Falls back to web search and YouTube when the manual is thin, then saves those answers so it gets better over time
-- Same backend for the phone PWA and WhatsApp
-- Grounded in her actual machine specs so it does not invent a zig-zag machine she does not have
+- PWA accounts keep their own profile, machine brand/model, and private chat history
+- Grounded in each account’s saved machine details; the assistant does not assume unprovided machine specifications
 
 ## Stack
 
@@ -36,9 +36,9 @@ I am planning to expand this to all Mallu tailors. Same idea: Malayalam-first he
 
 ## Architecture and security
 
-This is a modular monorepo organized by deployable boundary: the React PWA is the presentation layer, the Supabase Edge Function is the HTTP/application layer, and Postgres/pgvector plus Gemini/search providers form the data and integration layer. The agent flow retrieves manual chunks first, selectively searches external sources, builds grounded context, and generates a response. The Node server contains the manual ingestion utility and an Express reference runtime; WhatsApp is an optional adapter to the same chat API.
+The React PWA handles account setup and chat. The Supabase Edge API validates Auth sessions, applies shared rate limits, then routes requests through controllers and use cases to database repositories and provider adapters. Postgres stores private account profiles, machine details, conversations, and messages; shared manuals are searched with pgvector. Learned answers are scoped to their owner. The Node server retains ingestion tooling and the legacy Express reference runtime. The Baileys bot remains a separate server-side integration and is not linked to PWA accounts.
 
-The primary API now validates and bounds media requests, applies an origin allowlist, and returns generic server errors. Read [SECURITY.md](./SECURITY.md) for current protections and the authentication limitation: the shared token in a browser bundle is public and does not authenticate individual users.
+Read [SECURITY.md](./SECURITY.md) for Auth, RLS, rate-limit, logging, and rollout requirements. Production must be configured with Supabase Auth email delivery, CAPTCHA, and Upstash Redis before paid API routes are enabled.
 
 ## Repo layout
 
@@ -46,7 +46,7 @@ The primary API now validates and bounds media requests, applies an origin allow
 supabase/   Edge Function API (chat, RAG, transcribe, speak)
 server/     Node ingest script + local Express reference
 web/        Phone PWA (chat, settings, 3D machine on splash)
-whatsapp/   WhatsApp bridge into the same API
+whatsapp/   Separate Baileys bot using the legacy chat endpoint
 ```
 
 Deploy notes for both hosts live in [DEPLOY.md](./DEPLOY.md). The repository keeps `web/netlify.toml` and also includes a root [`vercel.json`](./vercel.json), so either hosting workflow can be used without changing the application code.

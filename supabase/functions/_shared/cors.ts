@@ -11,9 +11,10 @@ export function corsHeaders(req: Request): Record<string, string> {
     ...(origin && allowed.includes(origin)
       ? { "Access-Control-Allow-Origin": origin }
       : {}),
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
     "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type",
+      "authorization, x-client-info, apikey, content-type, x-request-id",
+    "Access-Control-Expose-Headers": "X-Request-ID",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };

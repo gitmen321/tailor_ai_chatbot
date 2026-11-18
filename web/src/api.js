@@ -1,6 +1,5 @@
 import { resolveApiBase } from "./apiBase.js";
-
-const STORAGE_KEY = "tailor_web_user_id";
+import { supabase } from "./lib/supabase.js";
 const CHAT_UI_CLEARED_KEY = "tailor_chat_ui_cleared";
 
 const CHAT_TIMEOUT_MS = 90000;
@@ -13,17 +12,18 @@ function apiBase() {
   return resolveApiBase(import.meta.env.VITE_SERVER_API_URL, hostname);
 }
 
-function apiToken() {
-  const token = import.meta.env.VITE_API_AUTH_TOKEN;
-  if (!token) throw new Error("VITE_API_AUTH_TOKEN is not set");
-  return token;
-}
-
-function authHeaders() {
+async function authHeaders() {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error || !session?.access_token) throw new Error("Your session has expired. Please sign in again.");
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${apiToken()}`,
+    Authorization: `Bearer ${session.access_token}`,
   };
+}
+
+async function throwApiError(response, fallback) {
+  const payload = await response.json().catch(() => null);
+  throw new Error(payload?.error?.message || payload?.error || fallback);
 }
 
 async function fetchWithTimeout(url, options, timeoutMs) {
@@ -48,28 +48,15 @@ async function fetchWithTimeout(url, options, timeoutMs) {
   }
 }
 
-export function getOrCreateWebUserId() {
-  const existing = localStorage.getItem(STORAGE_KEY);
-  if (existing) return existing;
-
-  const id =
-    typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `web-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-  localStorage.setItem(STORAGE_KEY, id);
-  return id;
+export function isChatUiCleared(userId) {
+  return localStorage.getItem(`${CHAT_UI_CLEARED_KEY}:${userId}`) === "true";
 }
 
-export function isChatUiCleared() {
-  return localStorage.getItem(CHAT_UI_CLEARED_KEY) === "true";
-}
-
-export function setChatUiCleared(cleared) {
+export function setChatUiCleared(userId, cleared) {
   if (cleared) {
-    localStorage.setItem(CHAT_UI_CLEARED_KEY, "true");
+    localStorage.setItem(`${CHAT_UI_CLEARED_KEY}:${userId}`, "true");
   } else {
-    localStorage.removeItem(CHAT_UI_CLEARED_KEY);
+    localStorage.removeItem(`${CHAT_UI_CLEARED_KEY}:${userId}`);
   }
 }
 
@@ -79,26 +66,36 @@ export async function checkServerHealth() {
   return true;
 }
 
-export async function fetchChatHistory({ webUserId, signal }) {
-  const url = `${apiBase()}/api/history?webUserId=${encodeURIComponent(webUserId)}`;
-  const res = await fetchWithTimeout(url, { headers: authHeaders(), signal }, 15000);
+export async function fetchProfile() {
+  const res = await fetchWithTimeout(`${apiBase()}/api/profile`, { headers: await authHeaders() }, 15000);
+  if (!res.ok) await throwApiError(res, `Profile request failed (${res.status})`);
+  return res.json();
+}
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(errText || `History fetch failed (${res.status})`);
-  }
+export async function saveProfile(profile) {
+  const res = await fetchWithTimeout(`${apiBase()}/api/profile`, {
+    method: "PUT",
+    headers: await authHeaders(),
+    body: JSON.stringify(profile),
+  }, 15000);
+  if (!res.ok) await throwApiError(res, `Profile save failed (${res.status})`);
+  return res.json();
+}
+
+export async function fetchChatHistory({ signal } = {}) {
+  const res = await fetchWithTimeout(`${apiBase()}/api/history`, { headers: await authHeaders(), signal }, 15000);
+  if (!res.ok) await throwApiError(res, `History fetch failed (${res.status})`);
 
   return res.json();
 }
 
-export async function sendChatMessage({ webUserId, text, imageBase64, imageMimeType, signal }) {
+export async function sendChatMessage({ text, imageBase64, imageMimeType, signal }) {
   const res = await fetchWithTimeout(
     `${apiBase()}/api/chat`,
     {
       method: "POST",
-      headers: authHeaders(),
+      headers: await authHeaders(),
       body: JSON.stringify({
-        webUserId,
         text,
         imageBase64: imageBase64 || null,
         imageMimeType: imageMimeType || null,
@@ -109,8 +106,7 @@ export async function sendChatMessage({ webUserId, text, imageBase64, imageMimeT
   );
 
   if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(errText || `Server error (${res.status})`);
+    await throwApiError(res, `Server error (${res.status})`);
   }
 
   return res.json();
@@ -121,7 +117,7 @@ export async function transcribeAudio({ audioBase64, mimeType, signal }) {
     `${apiBase()}/api/transcribe`,
     {
       method: "POST",
-      headers: authHeaders(),
+      headers: await authHeaders(),
       body: JSON.stringify({
         audioBase64,
         mimeType: mimeType || "audio/webm",
@@ -132,8 +128,7 @@ export async function transcribeAudio({ audioBase64, mimeType, signal }) {
   );
 
   if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(errText || `Transcription failed (${res.status})`);
+    await throwApiError(res, `Transcription failed (${res.status})`);
   }
 
   const data = await res.json();
@@ -149,7 +144,7 @@ export async function fetchSpeechAudio({ text, signal }) {
     `${apiBase()}/api/speak`,
     {
       method: "POST",
-      headers: authHeaders(),
+      headers: await authHeaders(),
       body: JSON.stringify({ text }),
       signal,
     },
@@ -157,14 +152,7 @@ export async function fetchSpeechAudio({ text, signal }) {
   );
 
   if (!res.ok) {
-    let errText = await res.text().catch(() => "");
-    try {
-      const parsed = JSON.parse(errText);
-      errText = parsed.error || errText;
-    } catch {
-      /* use raw text */
-    }
-    throw new Error(errText || `Speech failed (${res.status})`);
+    await throwApiError(res, `Speech failed (${res.status})`);
   }
 
   return res.json();

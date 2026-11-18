@@ -4,7 +4,6 @@ import {
   checkServerHealth,
   fetchChatHistory,
   fileToBase64,
-  getOrCreateWebUserId,
   isChatUiCleared,
   sendChatMessage,
   setChatUiCleared,
@@ -15,10 +14,11 @@ import IosInstallHint from "../components/IosInstallHint.jsx";
 import PwaInstallBanner from "../components/PwaInstallBanner.jsx";
 import { useVoiceSettings } from "../contexts/VoiceSettingsContext.jsx";
 import { useWallpaper } from "../contexts/WallpaperContext.jsx";
+import { useAuth } from "../contexts/AuthContext.jsx";
 import { useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
 
 const WELCOME_ML =
-  "നമസ്കാരം റസിയ! യൂഷ ക്വിക്ക് സ്റ്റിച്ച് മെഷീനെ കുറിച്ച് ചോദിക്കാം. ടൈപ്പ് ചെയ്യുക, ശബ്ദസന്ദേശം അയയ്ക്കുക, അല്ലെങ്കിൽ ഫോട്ടോ എടുക്കുക.";
+  "നമസ്കാരം! നിങ്ങളുടെ തയ്യൽ മെഷീനെ കുറിച്ച് ചോദിക്കാം. ടൈപ്പ് ചെയ്യുക, ശബ്ദസന്ദേശം അയയ്ക്കുക, അല്ലെങ്കിൽ ഫോട്ടോ എടുക്കുക.";
 
 const TRANSCRIBE_FAIL_ML =
   "ശബ്ദം മനസ്സിലാക്കാൻ കഴിഞ്ഞില്ല. വ്യക്തമായി സംസാരിച്ച് വീണ്ടും ശ്രമിക്കുക.";
@@ -44,6 +44,7 @@ function mapHistoryRow(row) {
 }
 
 export default function ChatScreen() {
+  const { user } = useAuth();
   const { wallpaperClass, wallpaperStyle } = useWallpaper();
   const {
     readAloud,
@@ -58,7 +59,6 @@ export default function ChatScreen() {
     speakText,
     stopSpeaking,
   } = useVoiceSettings();
-  const [webUserId] = useState(() => getOrCreateWebUserId());
   const [messages, setMessages] = useState([welcomeMessage()]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [text, setText] = useState("");
@@ -130,7 +130,7 @@ export default function ChatScreen() {
   }, [recorderError]);
 
   useEffect(() => {
-    if (historyLoaded || isChatUiCleared()) {
+    if (historyLoaded || isChatUiCleared(user.id)) {
       setHistoryLoaded(true);
       return;
     }
@@ -140,10 +140,7 @@ export default function ChatScreen() {
 
     (async () => {
       try {
-        const data = await fetchChatHistory({
-          webUserId,
-          signal: controller.signal,
-        });
+        const data = await fetchChatHistory({ signal: controller.signal });
         if (cancelled) return;
 
         const rows = (data.messages ?? []).map(mapHistoryRow);
@@ -161,7 +158,7 @@ export default function ChatScreen() {
       cancelled = true;
       controller.abort();
     };
-  }, [webUserId, historyLoaded]);
+  }, [historyLoaded, user.id]);
 
   function handleForceStop() {
     chatAbortRef.current?.abort();
@@ -177,7 +174,7 @@ export default function ChatScreen() {
   }
 
   function handleClearChat() {
-    setChatUiCleared(true);
+    setChatUiCleared(user.id, true);
     setMessages([welcomeMessage()]);
     setError(null);
     setTranscribeError(null);
@@ -186,7 +183,7 @@ export default function ChatScreen() {
   }
 
   function handleRestoreHistory() {
-    setChatUiCleared(false);
+    setChatUiCleared(user.id, false);
     setHistoryLoaded(false);
   }
 
@@ -288,7 +285,7 @@ export default function ChatScreen() {
     const trimmed = text.trim();
     if ((!trimmed && !pendingImage) || loading || transcribing || isRecording) return;
 
-    setChatUiCleared(false);
+    setChatUiCleared(user.id, false);
 
     const outboundText = trimmed || "(image)";
     const imageBase64 = pendingImage?.base64 ?? null;
@@ -316,7 +313,6 @@ export default function ChatScreen() {
 
     try {
       const data = await sendChatMessage({
-        webUserId,
         text: outboundText,
         imageBase64,
         imageMimeType,
@@ -362,7 +358,7 @@ export default function ChatScreen() {
           <BrandMark size={40} />
           <div className="brand-block">
             <h1>Tailor Assistant</h1>
-            <p>റസിയയ്ക്കുള്ള സഹായി · യൂഷ ക്വിക്ക് സ്റ്റിച്ച്</p>
+            <p>നിങ്ങളുടെ തയ്യൽ മെഷീനിനുള്ള സഹായി</p>
           </div>
         </div>
         <div className="header-actions">
@@ -460,7 +456,7 @@ export default function ChatScreen() {
       <PwaInstallBanner />
       <IosInstallHint />
 
-      {isChatUiCleared() ? (
+      {isChatUiCleared(user.id) ? (
         <div className="chat-ui-notice">
           <span>ചാറ്റ് UI-യിൽ മാത്രം മായ്ച്ചു — ഡാറ്റാബേസിൽ സൂക്ഷിച്ചിരിക്കുന്നു.</span>
           <button type="button" onClick={handleRestoreHistory}>

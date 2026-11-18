@@ -38,11 +38,23 @@ jobs:
       - run: npm ci
       - run: npm audit --audit-level=high
       - run: npm run check:api
+      - run: npm run lint
       - run: npm run build
         env:
-          VITE_API_AUTH_TOKEN: ci-token
-          VITE_MACHINE_BRAND: Usha
-          VITE_MACHINE_MODEL: Quick Stitch
+          VITE_SUPABASE_URL: https://ci-project.supabase.co
+          VITE_SUPABASE_ANON_KEY: ci-publishable-key
+
+  edge-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno fmt --check supabase/functions/_shared/agent.ts supabase/functions/_shared/application supabase/functions/_shared/auth.ts supabase/functions/_shared/cors.ts supabase/functions/_shared/db.ts supabase/functions/_shared/embedText768.ts supabase/functions/_shared/errors.ts supabase/functions/_shared/gemini.ts supabase/functions/_shared/logger.ts supabase/functions/_shared/rateLimit.ts supabase/functions/_shared/router.ts supabase/functions/_shared/router_test.ts supabase/functions/_shared/saveLearnedAnswer.ts supabase/functions/_shared/searchWeb.ts supabase/functions/_shared/searchYoutube.ts supabase/functions/_shared/speak.ts supabase/functions/_shared/transcribe.ts
+      - run: deno lint supabase/functions
+      - run: deno check supabase/functions/api/index.ts supabase/functions/_shared/router_test.ts
+      - run: deno test --allow-env --allow-net --allow-read supabase/functions/_shared
 
   whatsapp:
     runs-on: ubuntu-latest

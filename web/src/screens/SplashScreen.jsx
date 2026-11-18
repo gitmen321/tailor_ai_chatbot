@@ -65,7 +65,7 @@ export default function SplashScreen() {
           Tailor Assistant
         </p>
         <h1 className="splash-title">
-          Welcome <em>Rasiya</em>,
+          Welcome,
           <br />
           I&apos;m here to help you
         </h1>

@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { env, requireEnv } from "./env.ts";
 
 let cached: SupabaseClient | null = null;
@@ -55,6 +55,66 @@ export async function getOrCreateUser(
   return created;
 }
 
+export async function getOrCreateAccountUser(authUserId: string) {
+  const supabase = getSupabase();
+  const { data: existing, error: findError } = await supabase
+    .from("users")
+    .select(
+      "id, auth_user_id, name, machine_brand, machine_model, preferred_language",
+    )
+    .eq("auth_user_id", authUserId)
+    .maybeSingle();
+  if (findError) throw findError;
+  if (existing) return existing;
+
+  const { data, error } = await supabase
+    .from("users")
+    .insert({
+      auth_user_id: authUserId,
+      whatsapp_number: null,
+      preferred_language: "ml",
+    })
+    .select(
+      "id, auth_user_id, name, machine_brand, machine_model, preferred_language",
+    )
+    .single();
+  if (error) {
+    // Concurrent first requests can race on the unique Auth identity.
+    const { data: raced, error: racedError } = await supabase
+      .from("users")
+      .select(
+        "id, auth_user_id, name, machine_brand, machine_model, preferred_language",
+      )
+      .eq("auth_user_id", authUserId)
+      .maybeSingle();
+    if (racedError || !raced) throw error;
+    return raced;
+  }
+  return data;
+}
+
+export async function updateAccountProfile(
+  authUserId: string,
+  profile: { name: string; machineBrand: string; machineModel: string },
+) {
+  const user = await getOrCreateAccountUser(authUserId);
+  const { data, error } = await getSupabase()
+    .from("users")
+    .update({
+      name: profile.name,
+      machine_brand: profile.machineBrand,
+      machine_model: profile.machineModel,
+    })
+    .eq("id", user.id)
+    .eq("auth_user_id", authUserId)
+    .select(
+      "id, auth_user_id, name, machine_brand, machine_model, preferred_language",
+    )
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function getOrCreateConversation(userId: string) {
   const supabase = getSupabase();
   const { data: existing, error: existingError } = await supabase
@@ -74,7 +134,16 @@ export async function getOrCreateConversation(userId: string) {
     .select("*")
     .single();
 
-  if (createError) throw createError;
+  if (createError) {
+    // The unique owner index makes concurrent first chats converge on one row.
+    const { data: raced, error: racedError } = await supabase
+      .from("conversations")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (racedError || !raced) throw createError;
+    return raced;
+  }
   return created;
 }
 
@@ -96,7 +165,9 @@ export async function saveMessage(
     row.metadata = metadata;
   }
 
-  const { data, error } = await supabase.from("messages").insert(row).select("*").single();
+  const { data, error } = await supabase.from("messages").insert(row).select(
+    "*",
+  ).single();
   if (error) throw error;
   return data;
 }
@@ -111,7 +182,10 @@ export async function loadRecentHistory(conversationId: string, limit = 20) {
     .limit(limit);
 
   if (error) throw error;
-  return (data ?? []).reverse().map((m) => ({ role: m.role, content: m.content }));
+  return (data ?? []).reverse().map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
 }
 
 export async function loadChatHistory(conversationId: string, limit = 100) {
@@ -127,23 +201,31 @@ export async function loadChatHistory(conversationId: string, limit = 100) {
   return data ?? [];
 }
 
-export async function getWebUserConversationId(webUserId: string) {
-  const user = await getOrCreateUser(`web:${webUserId}`, { webUserId });
+export async function getAccountConversationId(authUserId: string) {
+  const user = await getOrCreateAccountUser(authUserId);
   const conversation = await getOrCreateConversation(user.id);
-  return conversation.id;
+  return { user, conversationId: conversation.id };
 }
 
 export async function searchMachineDocs(
   queryEmbedding: number[],
   machineModel: string,
   matchCount = 4,
+  ownerAuthUserId?: string,
 ) {
   const supabase = getSupabase();
-  const { data, error } = await supabase.rpc("match_machine_docs", {
-    query_embedding: queryEmbedding,
-    match_machine_model: machineModel,
-    match_count: matchCount,
-  });
+  const { data, error } = ownerAuthUserId
+    ? await supabase.rpc("match_machine_docs_for_account", {
+      query_embedding: queryEmbedding,
+      match_machine_model: machineModel,
+      match_count: matchCount,
+      requesting_user_id: ownerAuthUserId,
+    })
+    : await supabase.rpc("match_machine_docs", {
+      query_embedding: queryEmbedding,
+      match_machine_model: machineModel,
+      match_count: matchCount,
+    });
 
   if (error) throw error;
   return data ?? [];

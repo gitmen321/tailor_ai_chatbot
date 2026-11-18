@@ -106,7 +106,7 @@ export default function SettingsScreen() {
               className={`wallpaper-live ${wallpaperClass}`}
               style={wallpaperStyle}
             >
-              <div className="wallpaper-live-bubble">ഹലോ റസിയ</div>
+              <div className="wallpaper-live-bubble">നമസ്കാരം</div>
             </div>
             <div className="wallpaper-grid">
               {WALLPAPERS.map((w) => (

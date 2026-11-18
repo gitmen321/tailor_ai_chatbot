@@ -10,16 +10,29 @@
 - The CSP explicitly permits WebAssembly compilation required by the Meshopt decoder used by the compressed GLB model, while keeping normal script execution restricted to same-origin files.
 - `.env` files, WhatsApp session credentials, and build output are ignored by Git. Keep real credentials in deployment secret stores and rotate any credential that was ever committed or shared.
 
-## Important authentication limitation
+## Account authentication and private data
 
-`VITE_API_AUTH_TOKEN` is compiled into the public browser bundle. It is a shared application secret, not user authentication; anyone who can load the site can recover it. `webUserId` is generated in local storage and is also client-controlled, so it must not be used to protect private chat history. The current setup is suitable only for a trusted, low-risk single-user demo. CORS is a browser policy and does not prevent direct API calls.
+- The PWA signs in with Supabase Auth email links. Edge routes validate the bearer token with Supabase Auth and derive the account ID from the verified user record; request fields and browser storage are not used as identity.
+- The browser uses only the Supabase publishable/anon key. The service-role key remains confined to the Edge Function.
+- A migration adds an Auth identity to user profiles and row-level policies for profile, conversation, and message reads/updates. Shared manual documents remain unavailable through direct user table access. Chat-derived learned answers are stored and retrieved by Auth owner so they do not cross accounts.
+- Existing legacy user rows are left unassigned. Do not map them to a new account until an operator has verified the correct owner.
+- The separate Baileys bridge still uses a server-only `WHATSAPP_API_AUTH_TOKEN` for its legacy chat path. Rotate any token that was previously bundled into the PWA; never set that token as a `VITE_*` variable. No PWA account linking is implemented for WhatsApp.
 
-Before supporting multiple users or private data, replace the shared bearer token with per-user authentication (for example Supabase Auth access tokens), validate the token server-side, derive identity from its verified claims rather than request fields, and enforce row-level access policies for user/conversation/message data. Keep service-role access confined to trusted server code. Add shared, durable rate limits and abuse monitoring before opening expensive AI endpoints to the public.
+## Authentication and API rate limits
+
+- Supabase Auth applies its native IP and per-address limits to email sign-in links. Configure the project’s Auth rate limits and enable Turnstile CAPTCHA in the Supabase dashboard. The PWA passes the Turnstile token when `VITE_TURNSTILE_SITE_KEY` is configured.
+- Chat, speech, transcription, profile, and history routes use a shared Upstash Redis sliding-window limiter. Limits are keyed by a SHA-256 digest of the user or IP identity. Missing or unavailable Redis credentials fail closed with `503`, before paid model work starts.
+- Default chat limits are 10 requests per user per minute, 100 per user per rolling day, and 1,000 globally per rolling day. Media defaults are 20 per user per minute, 50 per user per rolling day, and 2,000 globally per rolling day. These are configurable through the `CHAT_*`, `MEDIA_*`, and `API_IP_RATE_LIMIT_PER_MINUTE` Edge secrets.
+- `429` responses indicate the configured limit was reached. Monitor usage and provider bills, then tune defaults before increasing concurrency.
 
 ## Operations
 
 - Set `API_ALLOWED_ORIGINS` to the exact production PWA origin(s), comma-separated, with no trailing slash. Keep localhost entries only for development deployments.
 - Use separate credentials for local, preview, and production environments.
+- Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` before enabling chat or media routes; the API deliberately rejects paid work if they are absent.
+- Configure Supabase Auth email delivery, redirect allowlists, rate limits, and CAPTCHA. Configure `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_TURNSTILE_SITE_KEY` in the PWA build environment.
+- Use the `X-Request-ID` response header to find the corresponding structured Edge log entry. Logs include route, status, duration, error category/type, and identity kind; they do not include prompts or message content.
+- Apply `supabase/migrations/20261118175150_multi_user_accounts_and_rls.sql` only after reviewing the migration and rechecking that no user has multiple conversations. This checkout has not applied the migration to production.
 - Review provider usage limits and rotate keys immediately if exposed.
 - GitHub Actions runs `npm audit --audit-level=high` for the server, PWA, and WhatsApp bridge on pushes and pull requests to `main`.
 

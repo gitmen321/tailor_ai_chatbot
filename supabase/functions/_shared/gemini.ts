@@ -1,4 +1,5 @@
 import { env, requireEnv } from "./env.ts";
+import { AppError } from "./errors.ts";
 
 const DEFAULT_MODEL = "gemini-3.5-flash";
 
@@ -47,26 +48,48 @@ export async function generateGeminiContent({
     body.systemInstruction = { parts: [{ text: systemPrompt }] };
   }
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    },
-  );
+  let response: Response;
+  try {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+  } catch {
+    throw new AppError(
+      503,
+      "ai_provider_unavailable",
+      "The AI service is temporarily unavailable.",
+    );
+  }
 
-  const data = await response.json();
+  const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const msg = data?.error?.message ?? JSON.stringify(data).slice(0, 300);
-    throw new Error(`Gemini API failed (${response.status}): ${msg}`);
+    if (response.status === 429) {
+      throw new AppError(
+        503,
+        "ai_provider_rate_limited",
+        "The AI service is busy. Please try again shortly.",
+      );
+    }
+    throw new AppError(
+      502,
+      "ai_provider_error",
+      "The AI service could not complete the request.",
+    );
   }
 
   const text = extractText(data);
   if (!text) {
-    const finishReason = data.candidates?.[0]?.finishReason ?? "unknown";
-    throw new Error(`Gemini returned no text (finishReason=${finishReason})`);
+    throw new AppError(
+      502,
+      "ai_empty_response",
+      "The AI service returned an empty response.",
+    );
   }
 
   return text;

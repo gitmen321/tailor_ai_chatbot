@@ -1,6 +1,14 @@
 import { env, requireEnv } from "./env.ts";
+import { AppError } from "./errors.ts";
 
 const MAX_CHARS = 600;
+type GeminiSpeechResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{ inlineData?: { mimeType?: string; data?: string } }>;
+    };
+  }>;
+};
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -83,33 +91,57 @@ async function callGeminiTts(spoken: string, model: string) {
   const apiKey = requireEnv("GOOGLE_API_KEY");
   const voice = env("GEMINI_TTS_VOICE") ?? "Kore";
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: spoken }] }],
-        generationConfig: {
-          responseModalities: ["AUDIO"],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: voice },
+  let response: Response;
+  try {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: spoken }] }],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: voice },
+              },
             },
           },
-        },
-      }),
-    },
-  );
+        }),
+      },
+    );
+  } catch {
+    throw new AppError(
+      503,
+      "speech_provider_unavailable",
+      "Speech is temporarily unavailable.",
+    );
+  }
 
-  const data = await response.json();
+  let data: GeminiSpeechResponse;
+  try {
+    data = await response.json() as GeminiSpeechResponse;
+  } catch {
+    throw new AppError(
+      502,
+      "speech_provider_error",
+      "Speech service returned an invalid response.",
+    );
+  }
   if (!response.ok) {
-    const msg = data?.error?.message ?? JSON.stringify(data).slice(0, 300);
-    const err = new Error(`TTS API failed (${response.status}): ${msg}`) as Error & {
-      status?: number;
-    };
-    err.status = response.status;
-    throw err;
+    if (response.status === 429) {
+      throw new AppError(
+        429,
+        "speech_rate_limited",
+        "Speech service is busy. Please try again shortly.",
+      );
+    }
+    throw new AppError(
+      502,
+      "speech_provider_error",
+      "Speech service could not complete the request.",
+    );
   }
 
   const inline = data.candidates?.[0]?.content?.parts?.find(
@@ -118,7 +150,13 @@ async function callGeminiTts(spoken: string, model: string) {
   const rawMime = inline?.inlineData?.mimeType ?? "";
   const rawB64 = inline?.inlineData?.data;
 
-  if (!rawB64) throw new Error("TTS returned no audio");
+  if (!rawB64) {
+    throw new AppError(
+      502,
+      "speech_provider_error",
+      "Speech service returned no audio.",
+    );
+  }
 
   const pcm = base64ToBytes(rawB64);
   const wav = pcmToWav(pcm, parsePcmMime(rawMime));
@@ -130,7 +168,9 @@ async function callGeminiTts(spoken: string, model: string) {
 
 export async function synthesizeMalayalamSpeech(text: string) {
   const spoken = cleanForSpeech(text);
-  if (!spoken) throw new Error("Nothing to speak");
+  if (!spoken) {
+    throw new AppError(400, "invalid_text", "Text is required for speech.");
+  }
   const model = env("GEMINI_TTS_MODEL") ?? "gemini-3.1-flash-tts-preview";
 
   try {
@@ -139,8 +179,22 @@ export async function synthesizeMalayalamSpeech(text: string) {
     const status = (err as { status?: number }).status;
     if (status === 429 || status === 503) {
       await sleep(4000);
-      return await callGeminiTts(spoken, model);
+      try {
+        return await callGeminiTts(spoken, model);
+      } catch (retryError) {
+        if (retryError instanceof AppError) throw retryError;
+        throw new AppError(
+          503,
+          "speech_provider_unavailable",
+          "Speech is temporarily unavailable.",
+        );
+      }
     }
-    throw err;
+    if (err instanceof AppError) throw err;
+    throw new AppError(
+      503,
+      "speech_provider_unavailable",
+      "Speech is temporarily unavailable.",
+    );
   }
 }

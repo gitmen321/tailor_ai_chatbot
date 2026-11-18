@@ -14,13 +14,10 @@ export function jsonResponse(
   });
 }
 
-export function errorResponse(req: Request, status: number, message: string): Response {
+export function errorResponse(
+  req: Request,
+  status: number,
+  message: string,
+): Response {
   return jsonResponse(req, { error: message }, status);
-}
-
-export function isAuthorized(req: Request): boolean {
-  const header = req.headers.get("Authorization") ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
-  const expected = Deno.env.get("API_AUTH_TOKEN");
-  return Boolean(expected && token && token === expected);
 }
