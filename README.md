@@ -6,7 +6,7 @@ She is a tailor. She works on an Usha Quick Stitch machine every day, and most o
 
 She can use it from her phone as an installable PWA, or over WhatsApp. She can type, send a photo of the machine, or just talk. If the manual has the answer, it uses that. If it does not, it looks up tutorials and remembers what it learned.
 
-Live app: [https://mellow-lily-dc4d1e.netlify.app/](https://mellow-lily-dc4d1e.netlify.app/)
+Live app: [https://tailoraichatbot.vercel.app/chat](https://tailoraichatbot.vercel.app/chat)
 
 ## Where this is going
 
