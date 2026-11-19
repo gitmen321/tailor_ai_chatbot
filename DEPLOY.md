@@ -67,7 +67,7 @@ Required secrets:
 | `API_IP_RATE_LIMIT_PER_MINUTE` | Default `60` per source IP |
 | `API_ALLOWED_ORIGINS` | Comma-separated exact PWA origins, e.g. `https://your-site.netlify.app` |
 
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically. Do not put the service role key in the web app. Paid API routes return `503` until the Upstash REST URL and token are set.
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically. Do not put the service role key in the web app. Deployed paid API routes return `503` until the Upstash REST URL and token are set. Local development can use the explicitly enabled local fallback described below.
 
 Gateway JWT verification remains off so `/health` can stay public; protected routes validate Supabase Auth tokens in the Edge API. The shared `WHATSAPP_API_AUTH_TOKEN` is accepted only for the legacy WhatsApp chat path, not PWA profile/history/media routes.
 
@@ -79,7 +79,7 @@ Before applying the migration, confirm the correct owner for any legacy profile 
 2. To enable Google demo sign-in, create an OAuth **Web application** client in Google Cloud. Set its consent screen audience to **External / Testing**, add the demo Google accounts as test users, set the authorized JavaScript origin to the PWA origin, and set the authorized redirect URI to the callback URL shown on the Supabase Google provider page. Enable Google in **Authentication → Providers → Google** and enter the client ID/secret there. Add the PWA URLs to Supabase **URL Configuration → Redirect URLs**. Google Testing mode allows up to 100 allowlisted testers; it is not an unrestricted public Google login.
 3. Configure Auth rate limits under **Authentication → Rate Limits**. Enable Cloudflare Turnstile in Auth bot protection, add its **secret key** in Supabase and the matching **site key** as `VITE_TURNSTILE_SITE_KEY` in each PWA build environment. The PWA sends CAPTCHA tokens on email/password sign-up and sign-in.
 4. Provision an Upstash Redis database and set its REST URL/token as Edge Function secrets. Keep the credentials out of the PWA and WhatsApp configuration.
-5. Before applying `20261118175150_multi_user_accounts_and_rls.sql`, recheck that `conversations.user_id` has no duplicate rows. Then review the RLS policies, FK cascade behavior, learned-answer owner filter, and profile migration. Apply it before deploying the new Edge Function.
+5. The account/RLS migration `20261119130504_multi_user_accounts_and_rls.sql` is already applied to the main Supabase project. It was applied only after confirming there were no users with multiple conversations. Existing legacy rows remain unassigned. Do not apply the migration again; deploy the matching Edge API only after the required secrets are configured.
 6. If the original user’s old chat should carry over, create that user’s Auth account, positively identify their `public.users.id`, then assign only that row’s `auth_user_id` with an operator-only SQL update. Do not expose a public self-claim endpoint.
 
 ### Later: custom email delivery and public OAuth
@@ -157,6 +157,7 @@ The 3D model uses Meshopt WebAssembly decoding. The included Vercel and Netlify 
 
 ```powershell
 # API (Deno)
+$env:LOCAL_DEV_MODE="true"
 deno run --allow-net --allow-env --env-file=server/.env --port=8787 supabase/functions/api/index.ts
 # or: $env:PORT=8787; deno run --allow-net --allow-env --env-file=server/.env supabase/functions/api/index.ts
 
@@ -166,6 +167,8 @@ npm run dev
 ```
 
 Vite proxies `/api` to `http://127.0.0.1:8787`.
+
+`LOCAL_DEV_MODE=true` allows only this local API process to fall back to bounded in-memory rate limits if Upstash is unavailable. Redis remains the production shared limiter. Never set `LOCAL_DEV_MODE` as a Supabase Edge Function secret; deployed API instances remain fail-closed when Redis is unavailable.
 
 `server/` is still useful as a Node CLI for `npm run ingest` (embedding the machine manual). You do not need to host Express.
 
@@ -178,7 +181,7 @@ WhatsApp (`whatsapp/`) remains a separate persistent Baileys process with no PWA
 | Problem | Fix |
 |---------|-----|
 | `Unauthorized` | Check the Supabase Auth session and allowed email redirect URLs. |
-| `503` with `rate_limiter_unavailable` | Set the Upstash REST URL/token on the Edge Function and redeploy it. |
+| `503` with `rate_limiter_unavailable` | In production, set the Upstash REST URL/token on the Edge Function and redeploy it. For local development only, restart the local API with `LOCAL_DEV_MODE=true`. |
 | `429` | A configured per-user, per-IP, or global rolling-window limit was reached. |
 | CAPTCHA or password-auth failure | Check the Auth provider, Confirm email demo setting, rate limits, CAPTCHA provider/secret, and matching PWA Turnstile site key. |
 | Google sign-in failure | Check the Google client ID/secret in Supabase Auth, the Supabase callback URI in Google Cloud, the PWA origin, and the tester allowlist while the Google app is in Testing mode. |

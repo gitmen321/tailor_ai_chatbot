@@ -1,6 +1,7 @@
 // deno-lint-ignore-file require-await
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { AppError } from "./errors.ts";
+import { enforceRateLimits } from "./rateLimit.ts";
 import { createHandler } from "./router.ts";
 import { runChatUseCase } from "./application/chatService.ts";
 import { saveLearnedAnswerBestEffort } from "./agent.ts";
@@ -199,6 +200,59 @@ Deno.test("rate limiter outage fails closed before paid chat work", async () => 
   const response = await request(handler, "/chat", "POST", { text: "Hello" });
   assertEquals(response.status, 503);
   assertEquals(modelCalled, false);
+});
+
+Deno.test("Redis outage fails closed in production and uses bounded limits only in local dev", async () => {
+  const previous = {
+    local: Deno.env.get("LOCAL_DEV_MODE"),
+    url: Deno.env.get("UPSTASH_REDIS_REST_URL"),
+    token: Deno.env.get("UPSTASH_REDIS_REST_TOKEN"),
+    chatLimit: Deno.env.get("CHAT_RATE_LIMIT_PER_MINUTE"),
+  };
+  Deno.env.delete("LOCAL_DEV_MODE");
+  Deno.env.delete("UPSTASH_REDIS_REST_URL");
+  Deno.env.delete("UPSTASH_REDIS_REST_TOKEN");
+  try {
+    let productionError: unknown;
+    try {
+      await enforceRateLimits(
+        `production-limiter-test:${crypto.randomUUID()}`,
+        "127.0.0.1",
+        "chat",
+      );
+    } catch (error) {
+      productionError = error;
+    }
+    assertEquals(productionError instanceof AppError, true);
+    assertEquals((productionError as AppError).status, 503);
+
+    Deno.env.set("LOCAL_DEV_MODE", "true");
+    Deno.env.set("CHAT_RATE_LIMIT_PER_MINUTE", "2");
+    const identity = `local-fallback-test:${crypto.randomUUID()}`;
+    await enforceRateLimits(identity, "127.0.0.1", "chat");
+    await enforceRateLimits(identity, "127.0.0.1", "chat");
+    let caught: unknown;
+    try {
+      await enforceRateLimits(identity, "127.0.0.1", "chat");
+    } catch (error) {
+      caught = error;
+    }
+    assertEquals(caught instanceof AppError, true);
+    assertEquals((caught as AppError).status, 429);
+  } finally {
+    previous.local === undefined
+      ? Deno.env.delete("LOCAL_DEV_MODE")
+      : Deno.env.set("LOCAL_DEV_MODE", previous.local);
+    previous.url === undefined
+      ? Deno.env.delete("UPSTASH_REDIS_REST_URL")
+      : Deno.env.set("UPSTASH_REDIS_REST_URL", previous.url);
+    previous.token === undefined
+      ? Deno.env.delete("UPSTASH_REDIS_REST_TOKEN")
+      : Deno.env.set("UPSTASH_REDIS_REST_TOKEN", previous.token);
+    previous.chatLimit === undefined
+      ? Deno.env.delete("CHAT_RATE_LIMIT_PER_MINUTE")
+      : Deno.env.set("CHAT_RATE_LIMIT_PER_MINUTE", previous.chatLimit);
+  }
 });
 
 Deno.test("history does not accept a client-selected user id", async () => {

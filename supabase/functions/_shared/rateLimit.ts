@@ -18,6 +18,10 @@ redis.call('PEXPIRE', KEYS[1], window)
 return {1, limit - count - 1, now + window}
 `;
 
+const LOCAL_FALLBACK_COOLDOWN_MS = 30_000;
+const localWindows = new Map<string, number[]>();
+let localRedisFallbackUntil = 0;
+
 function setting(name: string, fallback: number): number {
   const value = Number(env(name));
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
@@ -93,42 +97,126 @@ async function incrementLimit(key: string, limit: number, windowMs: number) {
   }
 }
 
+function incrementLocalLimit(key: string, limit: number, windowMs: number) {
+  const now = Date.now();
+  const recent = (localWindows.get(key) ?? []).filter((time) =>
+    time > now - windowMs
+  );
+  if (recent.length >= limit) {
+    throw new AppError(
+      429,
+      "rate_limit_exceeded",
+      "Too many requests. Please try again shortly.",
+      Math.max(1, Math.ceil((recent[0] + windowMs - now) / 1000)),
+    );
+  }
+  recent.push(now);
+  localWindows.set(key, recent);
+}
+
+function enforceLocalLimits(
+  identity: string,
+  ipAddress: string,
+  category: "chat" | "media" | "profile",
+) {
+  const userDefaults = { chat: 10, media: 20, profile: 30 };
+  incrementLocalLimit(
+    `${category}:identity:${identity}`,
+    setting(
+      `${category.toUpperCase()}_RATE_LIMIT_PER_MINUTE`,
+      userDefaults[category],
+    ),
+    60_000,
+  );
+  incrementLocalLimit(
+    `${category}:ip:${ipAddress}`,
+    setting("API_IP_RATE_LIMIT_PER_MINUTE", 60),
+    60_000,
+  );
+
+  if (category === "chat") {
+    incrementLocalLimit(
+      `chat:daily:${identity}`,
+      setting("CHAT_USER_DAILY_LIMIT", 100),
+      86_400_000,
+    );
+    incrementLocalLimit(
+      "chat:global:daily",
+      setting("CHAT_GLOBAL_DAILY_LIMIT", 1000),
+      86_400_000,
+    );
+  } else if (category === "media") {
+    incrementLocalLimit(
+      `media:daily:${identity}`,
+      setting("MEDIA_USER_DAILY_LIMIT", 50),
+      86_400_000,
+    );
+    incrementLocalLimit(
+      "media:global:daily",
+      setting("MEDIA_GLOBAL_DAILY_LIMIT", 2000),
+      86_400_000,
+    );
+  }
+}
+
 export async function enforceRateLimits(
   identity: string,
   ipAddress: string,
   category: "chat" | "media" | "profile",
 ) {
+  const localDevMode = env("LOCAL_DEV_MODE") === "true";
+  if (localDevMode && Date.now() < localRedisFallbackUntil) {
+    enforceLocalLimits(identity, ipAddress, category);
+    return;
+  }
+
   const userDefaults = { chat: 10, media: 20, profile: 30 };
   const userMax = setting(
     `${category.toUpperCase()}_RATE_LIMIT_PER_MINUTE`,
     userDefaults[category],
   );
   const ipMax = setting("API_IP_RATE_LIMIT_PER_MINUTE", 60);
-  await incrementLimit(`${category}:identity:${identity}`, userMax, 60_000);
-  await incrementLimit(`${category}:ip:${ipAddress}`, ipMax, 60_000);
+  try {
+    await incrementLimit(`${category}:identity:${identity}`, userMax, 60_000);
+    await incrementLimit(`${category}:ip:${ipAddress}`, ipMax, 60_000);
 
-  if (category === "chat") {
-    await incrementLimit(
-      `chat:daily:${identity}`,
-      setting("CHAT_USER_DAILY_LIMIT", 100),
-      86_400_000,
-    );
-    await incrementLimit(
-      "chat:global:daily",
-      setting("CHAT_GLOBAL_DAILY_LIMIT", 1000),
-      86_400_000,
-    );
-  } else if (category === "media") {
-    await incrementLimit(
-      `media:daily:${identity}`,
-      setting("MEDIA_USER_DAILY_LIMIT", 50),
-      86_400_000,
-    );
-    await incrementLimit(
-      "media:global:daily",
-      setting("MEDIA_GLOBAL_DAILY_LIMIT", 2000),
-      86_400_000,
-    );
+    if (category === "chat") {
+      await incrementLimit(
+        `chat:daily:${identity}`,
+        setting("CHAT_USER_DAILY_LIMIT", 100),
+        86_400_000,
+      );
+      await incrementLimit(
+        "chat:global:daily",
+        setting("CHAT_GLOBAL_DAILY_LIMIT", 1000),
+        86_400_000,
+      );
+    } else if (category === "media") {
+      await incrementLimit(
+        `media:daily:${identity}`,
+        setting("MEDIA_USER_DAILY_LIMIT", 50),
+        86_400_000,
+      );
+      await incrementLimit(
+        "media:global:daily",
+        setting("MEDIA_GLOBAL_DAILY_LIMIT", 2000),
+        86_400_000,
+      );
+    }
+  } catch (error) {
+    // A process-local fallback is acceptable only for an explicitly local API.
+    // Deployed functions stay fail-closed so Redis failures cannot bypass the
+    // shared global limits on paid model and media work.
+    if (!localDevMode || !(error instanceof AppError) || error.status !== 503) {
+      throw error;
+    }
+    localRedisFallbackUntil = Date.now() + LOCAL_FALLBACK_COOLDOWN_MS;
+    console.warn(JSON.stringify({
+      event: "local_rate_limiter_fallback",
+      category,
+      cooldownMs: LOCAL_FALLBACK_COOLDOWN_MS,
+    }));
+    enforceLocalLimits(identity, ipAddress, category);
   }
 }
 

@@ -8,6 +8,12 @@ const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
 function readableAuthError(error, mode) {
   const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("not configured for this build")) {
+    return "Sign-in is not configured for this site yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to the hosting environment, then redeploy.";
+  }
+  if (message.includes("complete the security check")) {
+    return "Complete the security check above before continuing.";
+  }
   if (message.includes("invalid login credentials")) {
     return "Email or password is incorrect.";
   }
@@ -105,14 +111,12 @@ export default function AuthScreen() {
       });
       if (authError) throw authError;
     } catch {
-      setError(
-        "Google sign-in is unavailable. Check that the Google provider is enabled in Supabase Auth.",
-      );
+      setError(isSupabaseConfigured
+        ? "Google sign-in is unavailable. Check that the Google provider is enabled in Supabase Auth."
+        : "Sign-in is not configured for this site yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to the hosting environment, then redeploy.");
       setBusy(false);
     }
   }
-
-  const captchaRequired = Boolean(turnstileSiteKey);
 
   return (
     <main className="auth-shell">
@@ -187,7 +191,7 @@ export default function AuthScreen() {
           <button
             className="auth-submit"
             type="submit"
-            disabled={!isSupabaseConfigured || busy || (captchaRequired && !captchaToken)}
+            disabled={busy}
           >
             {busy
               ? "Please wait…"
@@ -202,7 +206,7 @@ export default function AuthScreen() {
           className="auth-google"
           type="button"
           onClick={signInWithGoogle}
-          disabled={!isSupabaseConfigured || busy}
+          disabled={busy}
         >
           <GoogleIcon />
           Continue with Google

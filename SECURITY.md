@@ -22,7 +22,8 @@
 ## Authentication and API rate limits
 
 - Supabase Auth applies native limits to password registration and sign-in. Configure the project’s Auth rate limits and enable Turnstile CAPTCHA in the Supabase dashboard. The PWA passes the Turnstile token for email/password sign-up and sign-in when `VITE_TURNSTILE_SITE_KEY` is configured.
-- Chat, speech, transcription, profile, and history routes use a shared Upstash Redis sliding-window limiter. Limits are keyed by a SHA-256 digest of the user or IP identity. Missing or unavailable Redis credentials fail closed with `503`, before paid model work starts.
+- Deployed chat, speech, transcription, profile, and history routes use a shared Upstash Redis sliding-window limiter. Limits are keyed by a SHA-256 digest of the user or IP identity. Missing or unavailable Redis credentials fail closed with `503`, before paid model work starts.
+- Only a local API started with `LOCAL_DEV_MODE=true` may fall back to process-local bounded counters during Redis outages. Never set this flag in Supabase; deployed instances continue to require shared Redis limits.
 - Default chat limits are 10 requests per user per minute, 100 per user per rolling day, and 1,000 globally per rolling day. Media defaults are 20 per user per minute, 50 per user per rolling day, and 2,000 globally per rolling day. These are configurable through the `CHAT_*`, `MEDIA_*`, and `API_IP_RATE_LIMIT_PER_MINUTE` Edge secrets.
 - `429` responses indicate the configured limit was reached. Monitor usage and provider bills, then tune defaults before increasing concurrency.
 
@@ -33,7 +34,7 @@
 - Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` before enabling chat or media routes; the API deliberately rejects paid work if they are absent.
 - Configure Supabase Auth providers, redirect allowlists, rate limits, and CAPTCHA. In demo mode, email confirmation is off and password recovery is unavailable without SMTP. Google OAuth Testing mode must list tester accounts. Configure `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_TURNSTILE_SITE_KEY` in the PWA build environment. Configure SMTP before turning email confirmation or email password recovery on.
 - Use the `X-Request-ID` response header to find the corresponding structured Edge log entry. Logs include route, status, duration, error category/type, and identity kind; they do not include prompts or message content.
-- Apply `supabase/migrations/20261118175150_multi_user_accounts_and_rls.sql` only after reviewing the migration and rechecking that no user has multiple conversations. This checkout has not applied the migration to production.
+- `supabase/migrations/20261119130504_multi_user_accounts_and_rls.sql` is applied to the main Supabase project. Existing legacy rows remain unassigned; no user ownership was inferred or reassigned.
 - Review provider usage limits and rotate keys immediately if exposed.
 - GitHub Actions runs `npm audit --audit-level=high` for the server, PWA, and WhatsApp bridge on pushes and pull requests to `main`.
 
