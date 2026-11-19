@@ -75,12 +75,18 @@ Before applying the migration, confirm the correct owner for any legacy profile 
 
 ### Required Supabase dashboard setup
 
-1. Enable email sign-in and configure custom SMTP/email delivery. Add the exact production `/chat` URL and any approved preview/local URLs to the Auth redirect allowlist.
-2. Configure Auth rate limits for sign-in, OTP/magic-link sending, and verification under **Authentication → Rate Limits**. Keep the provider’s IP and per-email windows enabled.
-3. Enable Cloudflare Turnstile CAPTCHA for Auth. Add the Turnstile **secret key** in Supabase Auth settings and the matching **site key** as `VITE_TURNSTILE_SITE_KEY` in each PWA build environment.
+1. Under **Authentication → Providers**, enable Email. For the no-SMTP demo, turn **Confirm email** off. New email/password accounts will receive a session immediately. Email verification and password-reset email are therefore unavailable until you configure email delivery.
+2. To enable Google demo sign-in, create an OAuth **Web application** client in Google Cloud. Set its consent screen audience to **External / Testing**, add the demo Google accounts as test users, set the authorized JavaScript origin to the PWA origin, and set the authorized redirect URI to the callback URL shown on the Supabase Google provider page. Enable Google in **Authentication → Providers → Google** and enter the client ID/secret there. Add the PWA URLs to Supabase **URL Configuration → Redirect URLs**. Google Testing mode allows up to 100 allowlisted testers; it is not an unrestricted public Google login.
+3. Configure Auth rate limits under **Authentication → Rate Limits**. Enable Cloudflare Turnstile in Auth bot protection, add its **secret key** in Supabase and the matching **site key** as `VITE_TURNSTILE_SITE_KEY` in each PWA build environment. The PWA sends CAPTCHA tokens on email/password sign-up and sign-in.
 4. Provision an Upstash Redis database and set its REST URL/token as Edge Function secrets. Keep the credentials out of the PWA and WhatsApp configuration.
 5. Before applying `20261118175150_multi_user_accounts_and_rls.sql`, recheck that `conversations.user_id` has no duplicate rows. Then review the RLS policies, FK cascade behavior, learned-answer owner filter, and profile migration. Apply it before deploying the new Edge Function.
 6. If the original user’s old chat should carry over, create that user’s Auth account, positively identify their `public.users.id`, then assign only that row’s `auth_user_id` with an operator-only SQL update. Do not expose a public self-claim endpoint.
+
+### Later: custom email delivery and public OAuth
+
+The demo does not need SMTP or a custom domain for email/password accounts. When you are ready to verify emails, offer email password recovery, or restore magic-link sign-in, acquire a domain and configure its sender DNS records with an SMTP provider; then configure the provider under Supabase **Authentication → SMTP Settings**, verify delivery, and turn **Confirm email** back on. Do not enable confirmation until delivery has been tested.
+
+For Google sign-in beyond the demo allowlist, publish the Google OAuth app and complete Google's production branding/domain verification as applicable. Google requires a verified domain for the app's production homepage and related OAuth domains. See [Google OAuth production policies](https://developers.google.com/identity/verification/authentication-policy-compliance).
 
 Deploy:
 
@@ -174,7 +180,8 @@ WhatsApp (`whatsapp/`) remains a separate persistent Baileys process with no PWA
 | `Unauthorized` | Check the Supabase Auth session and allowed email redirect URLs. |
 | `503` with `rate_limiter_unavailable` | Set the Upstash REST URL/token on the Edge Function and redeploy it. |
 | `429` | A configured per-user, per-IP, or global rolling-window limit was reached. |
-| CAPTCHA or email link failure | Configure Auth email delivery, redirect allowlists, CAPTCHA provider/secret, and the PWA Turnstile site key. |
+| CAPTCHA or password-auth failure | Check the Auth provider, Confirm email demo setting, rate limits, CAPTCHA provider/secret, and matching PWA Turnstile site key. |
+| Google sign-in failure | Check the Google client ID/secret in Supabase Auth, the Supabase callback URI in Google Cloud, the PWA origin, and the tester allowlist while the Google app is in Testing mode. |
 | Platform `401` before your code runs | Keep `verify_jwt = false`; the API validates protected user tokens itself and health stays public. |
 | Server offline in the PWA | Open `/api/health` on the Netlify origin, then the function URL above. |
 | Chat times out | Edge Functions have a wall-clock limit; check function logs in the Supabase dashboard. |

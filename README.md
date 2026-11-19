@@ -38,7 +38,7 @@ I am planning to expand this to all Mallu tailors. Same idea: Malayalam-first he
 
 The React PWA handles account setup and chat. The Supabase Edge API validates Auth sessions, applies shared rate limits, then routes requests through controllers and use cases to database repositories and provider adapters. Postgres stores private account profiles, machine details, conversations, and messages; shared manuals are searched with pgvector. Learned answers are scoped to their owner. The Node server retains ingestion tooling and the legacy Express reference runtime. The Baileys bot remains a separate server-side integration and is not linked to PWA accounts.
 
-Read [SECURITY.md](./SECURITY.md) for Auth, RLS, rate-limit, logging, and rollout requirements. Production must be configured with Supabase Auth email delivery, CAPTCHA, and Upstash Redis before paid API routes are enabled.
+Read [SECURITY.md](./SECURITY.md) for Auth, RLS, rate-limit, logging, and rollout requirements. The demo supports email/password accounts without email confirmation and Google OAuth for allowlisted testers. Configure SMTP before enabling email verification, password recovery, or magic-link sign-in. Configure CAPTCHA and Upstash Redis before opening paid API routes.
 
 ## Repo layout
 
