@@ -1,0 +1,202 @@
+[
+  {
+    "page": 1,
+    "chars": 1841,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n01\nSTART HERE\nTailor AI\nAI / ML engineer interview guide\nA practical study guide bui"
+  },
+  {
+    "page": 2,
+    "chars": 1888,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n02\nREADING MAP\nWhat to study, and where\nUnderstand the project first\n\u007f Pages 3-6: yo"
+  },
+  {
+    "page": 3,
+    "chars": 2230,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n03\nPART 1 / PROJECT STORY\nExplain why it exists\nYour 30-second introduction\n\u007f \"I bui"
+  },
+  {
+    "page": 4,
+    "chars": 1717,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n04\nPART 2 / INFRASTRUCTURE\nWhere each component runs\nReact PWA\nPhone / browser; Verc"
+  },
+  {
+    "page": 5,
+    "chars": 2190,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n05\nPART 2 / DATABASE AND MIGRATION\nSupabase, PostgreSQL, and pgvector\n\u007f PostgreSQL i"
+  },
+  {
+    "page": 6,
+    "chars": 2349,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n06\nPART 1 / REQUEST WALKTHROUGH\nFrom a question to an answer\nExample: \"Why is the th"
+  },
+  {
+    "page": 7,
+    "chars": 2373,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n07\nPART 3 / KNOWLEDGE INGESTION\nHow the knowledge gets into RAG\n\u007f Source material: t"
+  },
+  {
+    "page": 8,
+    "chars": 2316,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n08\nPART 3 / RETRIEVAL CONCEPTS\nWhat a vector match really means\n\u007f Embedding: a learn"
+  },
+  {
+    "page": 9,
+    "chars": 2404,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n09\nPART 3 / AGENT AND PROMPT\nA controlled workflow around an LLM\n\u007f What \"agent\" mean"
+  },
+  {
+    "page": 10,
+    "chars": 2240,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n10\nPART 3 / MULTIMODAL AND MEMORY\nText, voice, photos, and context\n\u007f Voice input: th"
+  },
+  {
+    "page": 11,
+    "chars": 2401,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n11\nPART 4 / EVALUATION\nProve behaviour, then improve it\n\u007f Software tests ask: does a"
+  },
+  {
+    "page": 12,
+    "chars": 2583,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n12\nPART 4 / EVALUATION EXAMPLES\nWhat a good test looks like\nPROPOSED cases to put in"
+  },
+  {
+    "page": 13,
+    "chars": 2413,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n13\nPART 4 / DEBUGGING\nWhen an answer is bad, find the failed stage\nScenario: the ass"
+  },
+  {
+    "page": 14,
+    "chars": 2404,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n14\nPART 4 / SECURITY\nProtect identity, knowledge, and spend\n\u007f Authentication versus "
+  },
+  {
+    "page": 15,
+    "chars": 2392,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n15\nPART 4 / COST\nEstimate every stage of an interaction\n\u007f What can cost money: query"
+  },
+  {
+    "page": 16,
+    "chars": 2476,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n16\nPART 4 / RELIABILITY AND SCALE\nMake failures understandable and bounded\n\u007f IN CODE"
+  },
+  {
+    "page": 17,
+    "chars": 2482,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n17\nPART 4 / PRODUCTION PRIORITIES\nWhat you would improve next, and why\nFirst: reliab"
+  },
+  {
+    "page": 18,
+    "chars": 2879,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n18\nPART 6 / PROJECT PRACTICE 01\nProduct and architecture\nP01. What problem does your"
+  },
+  {
+    "page": 19,
+    "chars": 2912,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n19\nPART 6 / PROJECT PRACTICE 02\nData and infrastructure\nP05. Is pgvector from Supaba"
+  },
+  {
+    "page": 20,
+    "chars": 2791,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n20\nPART 6 / PROJECT PRACTICE 03\nRAG and embeddings\nP09. Explain RAG using this appli"
+  },
+  {
+    "page": 21,
+    "chars": 2830,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n21\nPART 6 / PROJECT PRACTICE 04\nAgent behaviour and prompts\nP13. Did you use LangCha"
+  },
+  {
+    "page": 22,
+    "chars": 2778,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n22\nPART 6 / PROJECT PRACTICE 05\nVoice, images, and memory\nP17. How does Malayalam vo"
+  },
+  {
+    "page": 23,
+    "chars": 2904,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n23\nPART 6 / PROJECT PRACTICE 06\nEvaluation and experiments\nP21. How are you evaluati"
+  },
+  {
+    "page": 24,
+    "chars": 2832,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n24\nPART 6 / PROJECT PRACTICE 07\nDebugging and failure handling\nP25. A user reports a"
+  },
+  {
+    "page": 25,
+    "chars": 2916,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n25\nPART 6 / PROJECT PRACTICE 08\nSecurity and privacy\nP29. How do you prevent one use"
+  },
+  {
+    "page": 26,
+    "chars": 2843,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n26\nPART 6 / PROJECT PRACTICE 09\nCost, latency, and scaling\nP33. How much does one re"
+  },
+  {
+    "page": 27,
+    "chars": 2969,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n27\nPART 6 / PROJECT PRACTICE 10\nJudgement and ownership\nP37. Why RAG instead of fine"
+  },
+  {
+    "page": 28,
+    "chars": 3069,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n28\nPART 5 / FUNDAMENTALS 01\nLearning types and model choices\nF01. What are AI, ML, d"
+  },
+  {
+    "page": 29,
+    "chars": 3001,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n29\nPART 5 / FUNDAMENTALS 02\nData and training mechanics\nF05. What are examples, feat"
+  },
+  {
+    "page": 30,
+    "chars": 3005,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n30\nPART 5 / FUNDAMENTALS 03\nGeneralization and leakage\nF09. Why separate training, v"
+  },
+  {
+    "page": 31,
+    "chars": 2897,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n31\nPART 5 / FUNDAMENTALS 04\nMetrics that answer the right question\nF13. What is a co"
+  },
+  {
+    "page": 32,
+    "chars": 3121,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n32\nPART 5 / FUNDAMENTALS 05\nMathematics and uncertainty\nF17. What are vectors, dot p"
+  },
+  {
+    "page": 33,
+    "chars": 3038,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n33\nPART 5 / FUNDAMENTALS 06\nNeural networks and transformers\nF21. What are weights, "
+  },
+  {
+    "page": 34,
+    "chars": 3032,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n34\nPART 5 / FUNDAMENTALS 07\nLLM engineering decisions\nF25. When do you use prompting"
+  },
+  {
+    "page": 35,
+    "chars": 3057,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n35\nPART 5 / FUNDAMENTALS 08\nProduction ML and engineering\nF29. What are data drift, "
+  },
+  {
+    "page": 36,
+    "chars": 2998,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n36\nPART 5 / FUNDAMENTALS 09\nPractical Python and verification\nF33. Which Python tool"
+  },
+  {
+    "page": 37,
+    "chars": 2288,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n37\nQUICK REVISION / PAGE 1 OF 2\nThe facts to remember\nYour core explanation\n\u007f \"I bui"
+  },
+  {
+    "page": 38,
+    "chars": 2387,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n38\nQUICK REVISION / PAGE 2 OF 2\nHow to answer under pressure\nFour answers to rehears"
+  },
+  {
+    "page": 39,
+    "chars": 2574,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n39\nREFERENCE / GLOSSARY\nPlain-English terms\n\u007f Agent workflow: code coordinating mode"
+  },
+  {
+    "page": 40,
+    "chars": 2907,
+    "start": "TAILOR AI  /  INTERVIEW STUDY GUIDE\n40\nREFERENCE / EVIDENCE\nSources and verification boundaries\nRepository snapshot revi"
+  }
+]

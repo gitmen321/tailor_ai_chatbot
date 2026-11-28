@@ -64,7 +64,9 @@ npm run ingest
 
 # API — Supabase Edge Function locally (Deno)
 cd ..
-$env:PORT=8787; deno run --allow-net --allow-env --allow-read --env-file=server/.env supabase/functions/api/index.ts
+$env:LOCAL_DEV_MODE = "true"
+$env:PORT = "8787"
+deno run --allow-net --allow-env --env-file=server/.env supabase/functions/api/index.ts
 
 # PWA (another terminal)
 cd web
@@ -73,7 +75,7 @@ npm install
 npm run dev
 ```
 
-The web app proxies `/api` to the local Edge Function on port 8787. Leave `VITE_SERVER_API_URL` empty.
+The web app proxies `/api` to the local Edge Function on port 8787. Leave `VITE_SERVER_API_URL` empty. If testing from another device, add the PC's current LAN origin (for example, `http://192.168.1.20:5173`) to `API_ALLOWED_ORIGINS` in `server/.env` and restart the API.
 
 WhatsApp is optional:
 

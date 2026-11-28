@@ -1,5 +1,5 @@
 import { env } from "./env.ts";
-import { getSupabase } from "./db.ts";
+import { getSupabase } from "./infrastructure/supabaseClient.ts";
 import { embedText768 } from "./embedText768.ts";
 
 export async function saveLearnedAnswer({

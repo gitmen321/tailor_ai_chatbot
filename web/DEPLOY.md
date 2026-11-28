@@ -1,42 +1,19 @@
-# Deploying the Tailor Assistant web PWA to Netlify
+# Deploying the PWA
 
-This app lives in the monorepo under `web/`.
+Use the repository root [`DEPLOY.md`](../DEPLOY.md) as the deployment source of truth. It covers Supabase Edge Functions, Netlify, and both supported Vercel project layouts.
 
-## 1. Connect the repo
+## Vercel environment variables
 
-1. Log in to [Netlify](https://app.netlify.com/).
-2. **Add new site → Import an existing project** and select the GitHub repo `gitmen321/tailor_ai_chatbot`.
+Set these for each Vercel environment that should build the app (Production, Preview, and optionally Development):
 
-## 2. Build settings (monorepo)
+| Variable | Value |
+|---|---|
+| `VITE_SUPABASE_URL` | The Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | The project's publishable key (`sb_publishable_…`) or legacy anon key |
+| `VITE_TURNSTILE_SITE_KEY` | Only when Auth CAPTCHA is enabled |
 
-In site settings / build & deploy:
+Leave `VITE_SERVER_API_URL` unset so the Vercel `/api/*` rewrite is used. Do not add `SUPABASE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, provider keys, or Redis tokens to Vercel's web environment; those are server-side Supabase Edge Function settings.
 
-| Setting | Value |
-|---------|--------|
-| Base directory | `web` |
-| Build command | `npm run build` |
-| Publish directory | `web/dist` (or `dist` if base is already `web`) |
+The repository-root `vercel.json` configures a monorepo-root Vercel project. If you instead set Vercel's Root Directory to `web`, its `web/vercel.json` is configured for that layout. Choose one layout, not both.
 
-`web/netlify.toml` already sets `command = "npm run build"` and `publish = "dist"` relative to the base directory.
-
-## 3. Environment variables
-
-In **Site settings → Environment variables**, add:
-
-| Name | Value |
-|------|--------|
-| `VITE_API_AUTH_TOKEN` | Same token as `API_AUTH_TOKEN` on the server |
-| `VITE_SERVER_API_URL` | Leave **empty** on Netlify. Same-origin `/api` is proxied to the Supabase Edge Function. |
-
-Vite bakes these in at **build time**, so change them and trigger a new deploy after updating.
-
-## 4. Localhost vs production
-
-Leave `VITE_SERVER_API_URL` empty locally and on Netlify. Vite proxies `/api` to the local Edge Function (`localhost:8787`); Netlify proxies `/api` to Supabase. Do not bake a function URL into the frontend unless you want a cross-origin call.
-
-## 6. 3D model asset
-
-Copy your sewing-machine GLB to `web/public/models/machine.glb` before
-building (it is gitignored because the file is large). Without it, the app
-shows a lightweight primitive silhouette instead.
-
+After deployment, add the exact Vercel site origin to the Supabase Edge Function `API_ALLOWED_ORIGINS` secret and the Vercel URL to Supabase Auth's redirect URL allowlist where OAuth redirects are used. The root [`DEPLOY.md`](../DEPLOY.md) has the full steps.

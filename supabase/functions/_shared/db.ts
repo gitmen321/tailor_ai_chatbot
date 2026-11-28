@@ -1,19 +1,6 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { env, requireEnv } from "./env.ts";
-
-let cached: SupabaseClient | null = null;
-
-export function getSupabase(): SupabaseClient {
-  if (cached) return cached;
-
-  const url = requireEnv("SUPABASE_URL");
-  const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
-
-  cached = createClient(url, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  return cached;
-}
+import { env } from "./env.ts";
+import { getSupabase } from "./infrastructure/supabaseClient.ts";
+import { getOrCreateAccountProfile } from "./repositories/profileRepository.ts";
 
 export async function getOrCreateUser(
   whatsappNumber: string,
@@ -56,63 +43,7 @@ export async function getOrCreateUser(
 }
 
 export async function getOrCreateAccountUser(authUserId: string) {
-  const supabase = getSupabase();
-  const { data: existing, error: findError } = await supabase
-    .from("users")
-    .select(
-      "id, auth_user_id, name, machine_brand, machine_model, preferred_language",
-    )
-    .eq("auth_user_id", authUserId)
-    .maybeSingle();
-  if (findError) throw findError;
-  if (existing) return existing;
-
-  const { data, error } = await supabase
-    .from("users")
-    .insert({
-      auth_user_id: authUserId,
-      whatsapp_number: null,
-      preferred_language: "ml",
-    })
-    .select(
-      "id, auth_user_id, name, machine_brand, machine_model, preferred_language",
-    )
-    .single();
-  if (error) {
-    // Concurrent first requests can race on the unique Auth identity.
-    const { data: raced, error: racedError } = await supabase
-      .from("users")
-      .select(
-        "id, auth_user_id, name, machine_brand, machine_model, preferred_language",
-      )
-      .eq("auth_user_id", authUserId)
-      .maybeSingle();
-    if (racedError || !raced) throw error;
-    return raced;
-  }
-  return data;
-}
-
-export async function updateAccountProfile(
-  authUserId: string,
-  profile: { name: string; machineBrand: string; machineModel: string },
-) {
-  const user = await getOrCreateAccountUser(authUserId);
-  const { data, error } = await getSupabase()
-    .from("users")
-    .update({
-      name: profile.name,
-      machine_brand: profile.machineBrand,
-      machine_model: profile.machineModel,
-    })
-    .eq("id", user.id)
-    .eq("auth_user_id", authUserId)
-    .select(
-      "id, auth_user_id, name, machine_brand, machine_model, preferred_language",
-    )
-    .single();
-  if (error) throw error;
-  return data;
+  return getOrCreateAccountProfile(getSupabase(), authUserId);
 }
 
 export async function getOrCreateConversation(userId: string) {

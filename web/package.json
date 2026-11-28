@@ -8,6 +8,7 @@
     "build": "vite build",
     "icons": "node scripts/generate-icons.mjs",
     "lint": "oxlint",
+    "test": "node --test",
     "preview": "vite preview",
     "check:api": "node scripts/checkProductionApi.mjs"
   },

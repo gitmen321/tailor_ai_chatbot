@@ -1,9 +1,14 @@
-import { getOrCreateAccountUser, updateAccountProfile } from "../db.ts";
+import { getSupabase } from "../infrastructure/supabaseClient.ts";
+import {
+  getOrCreateAccountProfile,
+  updateAccountProfile,
+  type AccountProfileInput,
+} from "../repositories/profileRepository.ts";
 
 export const getProfileUseCase = (userId: string) =>
-  getOrCreateAccountUser(userId);
+  getOrCreateAccountProfile(getSupabase(), userId);
 
 export const updateProfileUseCase = (
   userId: string,
-  profile: { name: string; machineBrand: string; machineModel: string },
-) => updateAccountProfile(userId, profile);
+  profile: AccountProfileInput,
+) => updateAccountProfile(getSupabase(), userId, profile);

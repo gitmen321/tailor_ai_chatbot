@@ -157,18 +157,21 @@ The 3D model uses Meshopt WebAssembly decoding. The included Vercel and Netlify 
 
 ```powershell
 # API (Deno)
-$env:LOCAL_DEV_MODE="true"
-deno run --allow-net --allow-env --env-file=server/.env --port=8787 supabase/functions/api/index.ts
-# or: $env:PORT=8787; deno run --allow-net --allow-env --env-file=server/.env supabase/functions/api/index.ts
+$env:LOCAL_DEV_MODE = "true"
+$env:PORT = "8787"
+deno run --allow-net --allow-env --env-file=server/.env supabase/functions/api/index.ts
 
-# PWA
+# PWA (another terminal)
 cd web
 npm run dev
 ```
 
 Vite proxies `/api` to `http://127.0.0.1:8787`.
+When testing from another device, use the PC's current LAN address for Vite and add that exact origin (for example, `http://192.168.1.20:5173`) to `API_ALLOWED_ORIGINS` in `server/.env`. Restart the API after changing this value.
 
 `LOCAL_DEV_MODE=true` allows only this local API process to fall back to bounded in-memory rate limits if Upstash is unavailable. Redis remains the production shared limiter. Never set `LOCAL_DEV_MODE` as a Supabase Edge Function secret; deployed API instances remain fail-closed when Redis is unavailable.
+
+For local profile, history, and chat routes, `server/.env` must contain the Supabase project URL and a privileged server key. Set `SUPABASE_SECRET_KEY` to the project's `sb_secret_…` key, or set `SUPABASE_SERVICE_ROLE_KEY` to the legacy key whose JWT role is `service_role`. A publishable/anon key belongs only in `web/.env`; it cannot create account rows under the current RLS policies. Keep either server key out of Git, `web/.env`, and all `VITE_*` variables. Restart the API after changing `server/.env`.
 
 `server/` is still useful as a Node CLI for `npm run ingest` (embedding the machine manual). You do not need to host Express.
 
@@ -181,10 +184,14 @@ WhatsApp (`whatsapp/`) remains a separate persistent Baileys process with no PWA
 | Problem | Fix |
 |---------|-----|
 | `Unauthorized` | Check the Supabase Auth session and allowed email redirect URLs. |
+| `server_supabase_key_invalid` | The local API has a publishable/anon key configured as its server key. Set `SUPABASE_SECRET_KEY` (`sb_secret_…`) or the legacy `service_role` key in `server/.env`, then restart the API. |
+| `server_supabase_key_missing` | Set `SUPABASE_URL` and a server-only Supabase secret/service-role key in `server/.env`, then restart the API. |
 | `503` with `rate_limiter_unavailable` | In production, set the Upstash REST URL/token on the Edge Function and redeploy it. For local development only, restart the local API with `LOCAL_DEV_MODE=true`. |
 | `429` | A configured per-user, per-IP, or global rolling-window limit was reached. |
 | CAPTCHA or password-auth failure | Check the Auth provider, Confirm email demo setting, rate limits, CAPTCHA provider/secret, and matching PWA Turnstile site key. |
 | Google sign-in failure | Check the Google client ID/secret in Supabase Auth, the Supabase callback URI in Google Cloud, the PWA origin, and the tester allowlist while the Google app is in Testing mode. |
 | Platform `401` before your code runs | Keep `verify_jwt = false`; the API validates protected user tokens itself and health stays public. |
+| Local PWA shows `502` for an API request | Vite is running but the local Deno API is not listening on port `8787`. Start the API command above and retry. |
+| Local LAN request returns `403 origin_not_allowed` | Add the exact current browser origin (including `:5173`) to `API_ALLOWED_ORIGINS` in `server/.env`, then restart the API. |
 | Server offline in the PWA | Open `/api/health` on the Netlify origin, then the function URL above. |
 | Chat times out | Edge Functions have a wall-clock limit; check function logs in the Supabase dashboard. |

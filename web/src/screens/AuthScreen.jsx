@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { isSupabaseConfigured, supabase } from "../lib/supabase.js";
+import { isSupabaseConfigured } from "../lib/supabase.js";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { authService } from "../services/auth/index.js";
+import { withAuthDeadline } from "../services/auth/timedFetch.js";
 
 const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
@@ -16,6 +18,19 @@ function readableAuthError(error, mode) {
   }
   if (message.includes("invalid login credentials")) {
     return "Email or password is incorrect.";
+  }
+  if (
+    message.includes("already registered") ||
+    message.includes("already been registered") ||
+    message.includes("user_already_exists") ||
+    message.includes("email_exists")
+  ) {
+    return "An account already exists for this email. Use the sign-in method you registered with (Google for a Google-only account), or use a different email for email/password registration.";
+  }
+  if (message.includes("timed out") || message.includes("timeout")) {
+    return mode === "signup"
+      ? "Supabase Auth did not respond within 20 seconds. This account may still have been created; try signing in before registering again."
+      : "Supabase Auth did not respond within 20 seconds. Check your connection and try signing in again.";
   }
   if (message.includes("captcha") || message.includes("security")) {
     return "The security check expired. Please complete it again.";
@@ -40,6 +55,7 @@ export default function AuthScreen() {
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaKey, setCaptchaKey] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [slow, setSlow] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -56,8 +72,10 @@ export default function AuthScreen() {
   async function submitCredentials(event) {
     event.preventDefault();
     setBusy(true);
+    setSlow(false);
     setError("");
     setMessage("");
+    const slowTimer = window.setTimeout(() => setSlow(true), 8_000);
     try {
       if (!isSupabaseConfigured) {
         throw new Error("Supabase Auth is not configured for this build.");
@@ -72,7 +90,9 @@ export default function AuthScreen() {
         ...(captchaToken ? { options: { captchaToken } } : {}),
       };
       if (mode === "signup") {
-        const { data, error: authError } = await supabase.auth.signUp(credentials);
+        const { data, error: authError } = await withAuthDeadline(
+          () => authService.signUpWithEmailPassword(credentials),
+        );
         if (authError) throw authError;
         if (data.session) {
           navigate("/setup", { replace: true });
@@ -82,8 +102,8 @@ export default function AuthScreen() {
           );
         }
       } else {
-        const { error: authError } = await supabase.auth.signInWithPassword(
-          credentials,
+        const { error: authError } = await withAuthDeadline(
+          () => authService.signInWithEmailPassword(credentials),
         );
         if (authError) throw authError;
         navigate("/chat", { replace: true });
@@ -91,7 +111,9 @@ export default function AuthScreen() {
     } catch (authError) {
       setError(readableAuthError(authError, mode));
     } finally {
+      window.clearTimeout(slowTimer);
       setBusy(false);
+      setSlow(false);
       setCaptchaToken("");
       setCaptchaKey((key) => key + 1);
     }
@@ -105,10 +127,7 @@ export default function AuthScreen() {
       if (!isSupabaseConfigured) {
         throw new Error("Supabase Auth is not configured for this build.");
       }
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/chat` },
-      });
+      const { error: authError } = await authService.signInWithGoogle(`${window.location.origin}/chat`);
       if (authError) throw authError;
     } catch {
       setError(isSupabaseConfigured
@@ -194,7 +213,7 @@ export default function AuthScreen() {
             disabled={busy}
           >
             {busy
-              ? "Please wait…"
+              ? slow ? "Connecting…" : "Please wait…"
               : mode === "signup"
               ? "Create account"
               : "Sign in"}

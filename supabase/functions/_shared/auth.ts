@@ -1,5 +1,5 @@
 import { AppError } from "./errors.ts";
-import { getSupabase } from "./db.ts";
+import { getSupabase } from "./infrastructure/supabaseClient.ts";
 import { env } from "./env.ts";
 
 export type RequestIdentity =

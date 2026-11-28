@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import ScreenHeader from "../components/ScreenHeader.jsx";
 import { fetchProfile, saveProfile } from "../api.js";
-import { supabase } from "../lib/supabase.js";
+import { authService } from "../services/auth/index.js";
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
@@ -47,7 +47,7 @@ export default function ProfileScreen() {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    await authService.signOut();
     navigate("/login", { replace: true });
   }
 

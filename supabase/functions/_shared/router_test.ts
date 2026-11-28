@@ -5,6 +5,7 @@ import { enforceRateLimits } from "./rateLimit.ts";
 import { createHandler } from "./router.ts";
 import { runChatUseCase } from "./application/chatService.ts";
 import { saveLearnedAnswerBestEffort } from "./agent.ts";
+import { requirePrivilegedSupabaseKey } from "./serverKey.ts";
 
 const completeProfile = {
   id: "db-user-1",
@@ -13,6 +14,31 @@ const completeProfile = {
   machine_model: "Quick Stitch",
   preferred_language: "ml",
 };
+
+Deno.test("server Supabase key accepts only secret or service-role keys", () => {
+  const payload = btoa(JSON.stringify({ role: "service_role" }));
+  const serviceRoleJwt = `header.${payload}.signature`;
+  assertEquals(requirePrivilegedSupabaseKey(serviceRoleJwt), serviceRoleJwt);
+  assertEquals(
+    requirePrivilegedSupabaseKey("sb_secret_example"),
+    "sb_secret_example",
+  );
+  for (
+    const key of [
+      undefined,
+      "sb_publishable_example",
+      `header.${btoa(JSON.stringify({ role: "anon" }))}.signature`,
+    ]
+  ) {
+    try {
+      requirePrivilegedSupabaseKey(key);
+      throw new Error("Expected a non-privileged key to be rejected");
+    } catch (error) {
+      assertEquals(error instanceof AppError, true);
+      assertEquals((error as AppError).status, 503);
+    }
+  }
+});
 
 function makeHandler(overrides: Record<string, unknown> = {}) {
   return createHandler({
